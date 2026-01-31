@@ -1,0 +1,23 @@
+TPMS:
+  max_chars: 500
+  preferred_chars: [50, 400]
+  handoff_after_attempts: 2
+  whatsapp:
+    tech: "https://wa.link/knk1e6"
+    sales: "https://wa.link/blzjfv"
+  prompt_file: "app/prompts/products/tpms.md"
+
+AA:
+  max_chars: 600
+  preferred_chars: [50, 400]
+  whatsapp:
+    tech: "https://wa.link/hsy20c"
+    sales: "https://wa.link/58yqgi"
+  prompt_file: "app/prompts/products/aa.md"
+
+CLIMATIZADOR:
+  max_chars: 600
+  preferred_chars: [50, 400]
+  special:
+    if_mentions_aa_return_only: "AIRE ACONDICIONADO"   # :contentReference[oaicite:32]{index=32}
+  prompt_file: "app/prompts/products/climatizadores.md"
