@@ -12,11 +12,11 @@ def run_chatbot():
     state = {
         "messages": [],  # start empty
         "handling_channel": None,
-        "product_family": None,
+        # "product_family": None,
         "confidence": None,
-        "attempts": {},  # new unused field
-        "retrieved": None,  # new unused field
-        "answer": None,  # new unused field
+        # "attempts": {},  # new unused field
+        # "retrieved": None,  # new unused field
+        # "answer": None,  # new unused field
     }
 
     # Main REPL loop: accept user input, run through the graph, and print replies

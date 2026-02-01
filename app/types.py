@@ -1,5 +1,8 @@
-from typing import TypedDict, List, Optional, Dict, Any
+from langgraph.graph.message import add_messages
+from typing import Annotated
+from typing import TypedDict, List
 from langchain_core.messages import BaseMessage
+from pydantic import Field
 
 
 class ChatState(TypedDict):
@@ -9,10 +12,11 @@ class ChatState(TypedDict):
     creating circular imports between node implementations and the main
     graph builder.
     """
-    messages: List[BaseMessage]
+    messages: Annotated[List[BaseMessage], add_messages]
     handling_channel:  str | None
-    product_family:  str | None
+    # product_family:  str | None
     confidence: float | None
-    attempts: Dict[str, int]
-    retrieved: Optional[List[Dict[str, Any]]]
-    answer:  str | None
+
+    # attempts: Dict[str, int]
+    # retrieved: Optional[List[Dict[str, Any]]]
+    # answer:  str | None
