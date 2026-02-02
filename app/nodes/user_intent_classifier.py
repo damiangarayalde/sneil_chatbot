@@ -1,7 +1,8 @@
 from typing import Literal
 from pydantic import BaseModel, Field
 from app.types import ChatState
-from app.utils import make_chat_prompt_for_route, init_llm
+from app.prompts.prompt_utils import make_chat_prompt_for_route
+from app.utils import init_llm
 from langchain_core.prompts import ChatPromptTemplate  # delete later
 
 
@@ -26,8 +27,10 @@ classifier_prompt = ChatPromptTemplate.from_messages([
      "Also choose product_family from the allowed list. If uncertain, pick the closest and lower confidence."),
     ("human", "{message}")
 ])
-# classifier_prompt, _ = make_chat_prompt_for_route(
-#     "CLASSIFIER", "User: {user_text}.")
+classifier_promptt, _ = make_chat_prompt_for_route(
+    "CLASSIFIER", "User: {user_text}.")
+
+# print(f'classifier prompt: {classifier_promptt}')
 
 
 def node__classify_user_intent(state: ChatState) -> ChatState:
