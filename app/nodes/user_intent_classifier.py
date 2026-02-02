@@ -1,29 +1,20 @@
-from langchain_core.prompts import ChatPromptTemplate
-from dotenv import load_dotenv
 from typing import Literal
-from langchain.chat_models import init_chat_model
 from pydantic import BaseModel, Field
 from app.types import ChatState
+from app.utils import make_chat_prompt_for_route, init_llm
+from langchain_core.prompts import ChatPromptTemplate  # delete later
 
-
-# ROUTES = ["TPMS", "AA", "CLIMATIZADOR", "GENKI",
-#           "CARJACK", "MAYORISTA", "CALDERA", "UNKNOWN"]
-
-
-load_dotenv()
 
 # Initialize the chat model used by the application
-llm = init_chat_model(model="gpt-4o-mini", temperature=0)
+llm = init_llm(model="gpt-4o-mini", temperature=0)
 
 
 class UserIntentClassifier_output_format(BaseModel):
     # Structured output model used to enforce the classifier's response shape
-    handling_channel: Literal["sales", "support"] = Field(
+    handling_channel: Literal["TPMS", "AA", "CLIMATIZADOR"] = Field(
         ...,
-        description="Clasifica el tipo de mensaje como 'ventas' o 'soporte'.",
+        description="Clasifica el tipo de mensaje como 'TPMS', 'AA' o 'CLIMATIZADOR'.",
     )
-    # product_family: Literal["TPMS", "AA", "CLIMATIZADOR",
-    #                         "GENKI", "CARJACK", "MAYORISTA", "CALDERA", "UNKNOWN"]
     confidence: float
 
 
@@ -35,6 +26,8 @@ classifier_prompt = ChatPromptTemplate.from_messages([
      "Also choose product_family from the allowed list. If uncertain, pick the closest and lower confidence."),
     ("human", "{message}")
 ])
+# classifier_prompt, _ = make_chat_prompt_for_route(
+#     "CLASSIFIER", "User: {user_text}.")
 
 
 def node__classify_user_intent(state: ChatState) -> ChatState:
@@ -48,15 +41,32 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
 
     print("Invoking classify_user_intent_node...")
 
+    # # Build common template variables expected by route prompts and shared texts.
+    # # Some shared prompts reference `{from}` and route prompts may use `{text}` and `{history}`.
+    # history = "\n".join(m.content for m in state.get("messages", [])[:-1])
+    # # Try to extract sender/phone info from the last message metadata if present
+    # last_msg_obj = state["messages"][-1]
+    # from_val = ""
+    # try:
+    #     meta = getattr(last_msg_obj, "metadata", None)
+    #     if isinstance(meta, dict):
+    #         from_val = meta.get("from", "") or meta.get("sender", "")
+    # except Exception:
+    #     from_val = ""
+
+    # fmt_kwargs = {"user_text": last_message,
+    #               "text": last_message, "history": history, "from": from_val}
+
+    # result = classifier_llm.invoke(
+    #     classifier_prompt.format_messages(**fmt_kwargs))
+
     result = classifier_llm.invoke(
         classifier_prompt.format_messages(message=last_message))
 
     print(
         f"Determined handling channel: {result.handling_channel},  (confidence: {result.confidence})")
-   # f"Determined handling channel: {result.handling_channel}, product family: {result.product_family} (confidence: {result.confidence})")
 
     return {
         "handling_channel": result.handling_channel,
         "confidence": result.confidence,
-        # "product_family": result.product_family
     }

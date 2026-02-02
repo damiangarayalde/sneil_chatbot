@@ -4,8 +4,7 @@ from app.nodes.route_subgraph import make_route_subgraph
 from app.nodes.user_intent_classifier import node__classify_user_intent
 from app.nodes.user_intent_router import node__route_by_user_intent
 
-ROUTES = ["sales", "support"]
-# ["TPMS", "AA", "CLIMATIZADOR",
+ROUTES = ["TPMS", "AA", "CLIMATIZADOR"]  # ,
 #           "GENKI", "CARJACK", "MAYORISTA", "CALDERA"]
 
 # Pre-build route subgraphs (each is a compiled StateGraph)

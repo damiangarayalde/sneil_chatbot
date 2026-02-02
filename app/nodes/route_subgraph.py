@@ -1,32 +1,12 @@
-# import yaml
-# from pathlib import Path
 from langgraph.graph import StateGraph, START, END
-from langchain_openai import ChatOpenAI
-# from langchain_core.prompts import ChatPromptTemplate
+from app.types import ChatState
+# Use route-based helper that builds the prompt from route_id
+from app.utils import (
+    make_chat_prompt_for_route,
+    init_llm,
+)
 # from app.nodes.rag import get_retriever
 # from app.tools.catalog_tool import catalog_lookup
-from app.types import ChatState
-
-
-# cfg = yaml.safe_load(Path("config/routes.yaml").read_text(encoding="utf-8"))
-
-
-# def load_prompt(path: str) -> str:
-#     """Load a prompt template file from disk.
-
-#     Parameters:
-#     - path (str): Relative path to the prompt file.
-
-#     Returns:
-#     - str: The file contents as a UTF-8 decoded string.
-#     """
-#     return Path(path).read_text(encoding="utf-8")
-
-
-# BASE = load_prompt("app/prompts/shared/base_policy.md")
-# WHATSAPP = load_prompt("app/prompts/shared/whatsapp_format.md")
-# ESCALATION = load_prompt("app/prompts/shared/escalation_policy.md")
-# SHIP_SPAIN = load_prompt("app/prompts/shared/shipping_spain.md")
 
 
 def make_route_subgraph(route_id: str) -> StateGraph:
@@ -48,20 +28,17 @@ def make_route_subgraph(route_id: str) -> StateGraph:
     - A compiled `StateGraph` ready to be invoked by the application.
     """
 
-    # Load the route-specific prompt and configuration values
-    # route_prompt = load_prompt(cfg[route_id]["prompt_file"])
-    # max_chars = cfg[route_id]["max_chars"]
-    # handoff_after = cfg[route_id].get("handoff_after_attempts")
-    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.2)
+    # Build prompt and get route config by passing only the route id
+    subgraph_prompt, route_cfg = make_chat_prompt_for_route(
+        route_id,
+        "User: {user_text}\n\nRetrieved context:\n\n\nIf you need price/link, ask to call catalog_lookup.",
 
-    # prompt = ChatPromptTemplate.from_messages([
-    #     ("system",
-    #      BASE + "\n\n" + WHATSAPP + "\n\n" + SHIP_SPAIN + "\n\n" + ESCALATION + "\n\n"
-    #      + f"## ROUTE: {route_id}\n" + route_prompt
-    #      + f"\n\nHard limit: {max_chars} characters including spaces."
-    #      ),
-    #     ("user", "User: {user_text}\n\nRetrieved context:\n{context}\n\nIf you need price/link, ask to call catalog_lookup.")
-    # ])
+        # "User: {user_text}\n\nRetrieved context:\n{context}\n\nIf you need price/link, ask to call catalog_lookup.",
+    )
+
+    llm = init_llm(model="gpt-4o-mini", temperature=0.2)
+
+    handoff_after = route_cfg.get("handoff_after_attempts")
 
     # def retrieve(state: ChatState) -> ChatState:
     #     """Retrieve relevant documents for the latest user message.
@@ -86,12 +63,9 @@ def make_route_subgraph(route_id: str) -> StateGraph:
         user_text = state["messages"][-1].content
         print(f"Invoking node for handling route: {route_id}...")
 
-        message = [
-            {"role": "system",
-                "content": f"Eres un agente que responde consultas de {route_id}."},
-            {"role": "human", "content": user_text}
-        ]
-        reply = llm.invoke(message)
+        reply = llm.invoke(
+            subgraph_prompt.format_messages(user_text=user_text))
+
         # Return the assistant reply wrapped in the state's messages field
         return {"messages": [reply]}
 
@@ -121,7 +95,7 @@ def make_route_subgraph(route_id: str) -> StateGraph:
     #     compress_prompt = ChatPromptTemplate.from_messages([
     #         ("system",
     #          f"Shorten to <= {max_chars} characters, keep links intact, keep meaning."),
-    #         ("user", "{text}")
+    #         ("human", "{text}")
     #     ])
     #     state["answer"] = compressor.invoke(
     #         compress_prompt.format_messages(text=ans)).content
