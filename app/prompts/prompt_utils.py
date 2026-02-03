@@ -28,16 +28,16 @@ def make_system_text(route_id: str, route_prompt: str, max_chars: int, shared_te
         shared_texts = get_shared_texts()
     return (
         shared_texts["BASE"]
-        # + "\n\n"
+        + "\n\n"
         # + shared_texts["WHATSAPP"]
         # + "\n\n"
         # + shared_texts["SHIP_SPAIN"]
         # + "\n\n"
         # + shared_texts["ESCALATION"]
         # + "\n\n"
-        # + f"## ROUTE: {route_id}\n"
-        # + route_prompt
-        # + f"\n\nHard limit: {max_chars} characters including spaces."
+        + f"## ROUTE: {route_id}\n"
+        + route_prompt
+        + f"\n\nHard limit: {max_chars} characters including spaces."
     )
 
 
@@ -70,6 +70,7 @@ def make_chat_prompt_for_route(route_id: str, human_template: str) -> tuple[Chat
     prompt template; internal prompt file loading and shared-text
     composition are handled here.
     """
-    route_prompt, max_chars, handoff_after, route_cfg = get_route_config(route_id)
+    route_prompt, max_chars, handoff_after, route_cfg = get_route_config(
+        route_id)
     tpl = make_chat_prompt(route_id, route_prompt, max_chars, human_template)
     return tpl, route_cfg
