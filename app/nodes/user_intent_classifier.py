@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 from app.types import ChatState
 from app.prompts.prompt_utils import make_chat_prompt_for_route
 from app.utils import init_llm
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 
 
 # Initialize the chat model used by the application
@@ -12,6 +12,10 @@ llm = init_llm(model="gpt-4o-mini", temperature=0)
 # --- Step 3A routing configuration (keep here for now; can move later) ---
 ROUTE_LOCK_THRESHOLD = 0.75
 MAX_ROUTING_ATTEMPTS = 3
+
+# How much history to include in the classifier prompt (keep small for cost)
+CLASSIFIER_HISTORY_MAX_MESSAGES = 10
+CLASSIFIER_HISTORY_MAX_CHARS = 2500
 
 
 class UserIntentClassifier_output_format(BaseModel):
@@ -31,8 +35,46 @@ class UserIntentClassifier_output_format(BaseModel):
     )
 
 
+def _role_label(msg: BaseMessage) -> str:
+    # Keep it simple; we only need enough to help routing.
+    if isinstance(msg, HumanMessage):
+        return "USER"
+    return "ASSISTANT"
+
+
+def _format_history(messages: list[BaseMessage]) -> str:
+    """
+    Build a compact, role-tagged history string.
+
+    We include only the last N messages (excluding the latest user message,
+    which is provided separately as {user_text}), and cap total chars to keep costs predictable.
+    """
+    if not messages:
+        return ""
+
+    tail = messages[-CLASSIFIER_HISTORY_MAX_MESSAGES:]
+    lines = [f"{_role_label(m)}: {m.content}" for m in tail if getattr(
+        m, "content", None)]
+    history = "\n".join(lines)
+
+    if len(history) > CLASSIFIER_HISTORY_MAX_CHARS:
+        history = history[-CLASSIFIER_HISTORY_MAX_CHARS:]
+        history = "…(recortado)\n" + history
+
+    return history
+
+
+# IMPORTANT: this is the key change: the human template now includes history + attempts + triage_summary.
+# (No unnecessary edits beyond adding the fields you explicitly requested.)
 classifier_prompt, _ = make_chat_prompt_for_route(
-    "CLASSIFIER", "User: {user_text}."
+    "CLASSIFIER",
+    (
+        "Historial reciente (puede estar vacío):\n{history}\n\n"
+        "Intentos de ruteo hasta ahora: {routing_attempts}\n"
+        "Resumen de triage actual (puede estar vacío): {triage_summary}\n"
+        "Sender (si existe): {from}\n\n"
+        "Último mensaje del usuario:\n{user_text}"
+    ),
 )
 
 
@@ -55,10 +97,11 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
 
     print("Invoking classify_user_intent_node...")
 
-    # NOTE: Keep your commented formatting block. We'll reuse it in Step 3B.
     # Build common template variables expected by route prompts and shared texts.
     # Some shared prompts reference `{from}` and route prompts may use `{text}` and `{history}`.
-    history = "\n".join(m.content for m in state.get("messages", [])[:-1])
+    # exclude latest user message from history
+    prior_messages = state.get("messages", [])[:-1]
+    history = _format_history(prior_messages)
 
     # Try to extract sender/phone info from the last message metadata if present
     last_msg_obj = state["messages"][-1]
@@ -70,20 +113,28 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
     except Exception:
         from_val = ""
 
-    fmt_kwargs = {"user_text": last_message,
-                  "text": last_message, "history": history, "from": from_val}
+    attempts = int(state.get("routing_attempts") or 0)
+    triage_summary = (state.get("triage_summary") or "").strip()
+
+    fmt_kwargs = {
+        "user_text": last_message,
+        "text": last_message,  # kept for compatibility in case prompts reference it
+        "history": history,
+        "from": from_val,
+        "routing_attempts": attempts,
+        "triage_summary": triage_summary,
+    }
 
     result = classifier_llm.invoke(
         classifier_prompt.format_messages(**fmt_kwargs))
 
+    # TODO: delete later (kept for reference / debugging)
     # result = classifier_llm.invoke(
     #     classifier_prompt.format_messages(message=last_message)
     # )
 
     print(
         f"Determined handling channel: {result.handling_channel}, (confidence: {result.confidence})")
-
-    attempts = int(state.get("routing_attempts") or 0)
 
     # If confidence is high enough OR attempts exceeded, lock route and proceed
     if float(result.confidence) >= ROUTE_LOCK_THRESHOLD or attempts >= MAX_ROUTING_ATTEMPTS:
