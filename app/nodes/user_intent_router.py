@@ -1,20 +1,22 @@
-# from dotenv import load_dotenv
-# from langchain.chat_models import init_chat_model
 from app.types import ChatState
-
-# load_dotenv()
-
-# Initialize the chat model used by the application
-# llm = init_chat_model(model="gpt-4o-mini")
 
 
 def node__route_by_user_intent(state: ChatState) -> ChatState:
-    # Router node: returns the node-key string that identifies the chosen channel agent node (sales or support)
+    """
+    Router node: decides which handler node to run next.
+    uses `handling_channel` in state to pick the route.
+    If `locked_route` is set, uses that instead.
+    """
+
+    # Prefer locked route if present
+    locked = state.get("locked_route")
+    if locked:
+        chosen = f"handle__{locked}"
+        print(f"Routing using locked_route in state: {locked} -> {chosen}")
+        return {"next": chosen}
 
     pf = state.get("handling_channel") or "unknown"
-    print(f'Routing based on handling_channel in state: {pf}')
+    print(f"Routing based on handling_channel in state: {pf}")
 
-    # Update the state with the chosen next node key so the conditional
-    # edges selector can read it. Must return a dict (state update).
-    chosen = f"handle__{pf}"  # if pf in subgraphs else "handle__unknown"
+    chosen = f"handle__{pf}"
     return {"next": chosen}
