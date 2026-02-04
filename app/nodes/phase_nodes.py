@@ -29,10 +29,10 @@ def node__handling(state: ChatState) -> ChatState:
 
     Incremental behavior:
     - Dispatch to `handle__X` if state.next already points there.
-    - Else derive handler from locked_route / handling_channel.
+    - Else derive handler from `locked_route`.
     - Else fall back to triage (recover).
-    """
 
+    """
     nxt = state.get("next")
     if isinstance(nxt, str) and nxt.startswith("handle__"):
         return {"phase": "handling", "next": nxt}
@@ -41,11 +41,8 @@ def node__handling(state: ChatState) -> ChatState:
     if locked:
         return {"phase": "handling", "next": f"handle__{locked}"}
 
-    pf = state.get("handling_channel")
-    if pf:
-        return {"phase": "handling", "next": f"handle__{pf}"}
-
-    return {"phase": "handling", "next": "triage"}
+    else:  # If we don't have a locked route, we cannot safely dispatch.
+        return {"phase": "handling", "next": "triage"}
 
 
 def node__closed(state: ChatState) -> ChatState:

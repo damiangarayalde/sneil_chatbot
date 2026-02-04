@@ -24,9 +24,8 @@ class ChatState(TypedDict, total=False):
     next: str  # router-selected next node key, e.g. "handle__TPMS"
 
     # Routing
-    handling_channel: Optional[str]  # current classifier output (pre-lock)
     confidence: Annotated[Optional[float], Field(ge=0, le=1)]
-    locked_route: Optional[str]  # once set, we can skip re-classification
+    locked_route: Optional[str]
     routing_attempts: int
     triage_question: Optional[str]
     triage_summary: Optional[str]

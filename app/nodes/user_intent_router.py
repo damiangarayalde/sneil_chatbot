@@ -2,21 +2,18 @@ from app.types import ChatState
 
 
 def node__route_by_user_intent(state: ChatState) -> ChatState:
-    """
-    Router node: decides which handler node to run next.
-    uses `handling_channel` in state to pick the route.
-    If `locked_route` is set, uses that instead.
-    """
+    """Router node: chooses the handler node key.
 
-    # Prefer locked route if present
+    Expected upstream behavior:
+    - `node__classify_user_intent` sets `locked_route` when ready to proceed.
+
+    If `locked_route` is missing, we bounce back to triage to recover.
+    """
     locked = state.get("locked_route")
-    if locked:
-        chosen = f"handle__{locked}"
-        print(f"Routing using locked_route in state: {locked} -> {chosen}")
-        return {"next": chosen}
+    if not locked:
+        print("route_by_user_intent: missing locked_route -> returning to triage")
+        return {"next": "triage"}
 
-    pf = state.get("handling_channel") or "unknown"
-    print(f"Routing based on handling_channel in state: {pf}")
-
-    chosen = f"handle__{pf}"
+    chosen = f"handle__{locked}"
+    print(f"route_by_user_intent: locked_route={locked} -> {chosen}")
     return {"next": chosen}
