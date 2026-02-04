@@ -26,6 +26,12 @@ def make_system_text(route_id: str, route_prompt: str, max_chars: int, shared_te
     """Compose the system message from route config and shared texts."""
     if shared_texts is None:
         shared_texts = get_shared_texts()
+    # Some route prompt files include JSON examples with braces (e.g. { ... }).
+    # Python's `str.format` used later will attempt to interpolate those braces,
+    # causing KeyError. Escape braces in the route prompt so the text is treated
+    # literally when the final ChatPromptTemplate formats messages.
+    safe_route_prompt = route_prompt.replace("{", "{{").replace("}", "}}")
+
     return (
         shared_texts["BASE"]
         + "\n\n"
@@ -36,7 +42,7 @@ def make_system_text(route_id: str, route_prompt: str, max_chars: int, shared_te
         # + shared_texts["ESCALATION"]
         # + "\n\n"
         + f"## ROUTE: {route_id}\n"
-        + route_prompt
+        + safe_route_prompt
         + f"\n\nHard limit: {max_chars} characters including spaces."
     )
 

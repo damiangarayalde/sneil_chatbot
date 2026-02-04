@@ -4,6 +4,53 @@ from app.types import ChatState
 from app.nodes.route_subgraph import make_route_subgraph
 from app.nodes.user_intent_classifier import node__classify_user_intent
 from app.nodes.user_intent_router import node__route_by_user_intent
+from typing import Callable, Any
+
+
+def _wrap_node(name: str, fn: Callable[[ChatState], ChatState]) -> Callable[[ChatState], ChatState]:
+    """Wrap a node function (or compiled subgraph callable) to print
+    concise entry/exit debug information.
+
+    Prints: node name, a few key state fields on entry and the returned
+    partial state on exit.
+    """
+
+    def _fmt_state_summary(s: ChatState) -> str:
+        return (
+            f"phase={s.get('phase')!r} next={s.get('next')!r} locked_route={s.get('locked_route')!r} "
+            f"routing_attempts={s.get('routing_attempts')!r} handling_channel={s.get('handling_channel')!r}"
+        )
+
+    def wrapper(state: ChatState) -> ChatState:
+        try:
+            print(f"[GRAPH] Enter node: {name} | {_fmt_state_summary(state)}")
+        except Exception:
+            print(f"[GRAPH] Enter node: {name}")
+
+        # Support plain callables and compiled StateGraph objects
+        try:
+            if callable(fn):
+                result = fn(state)
+            elif hasattr(fn, "invoke"):
+                result = fn.invoke(state)
+            else:
+                # Fallback: attempt attribute-based invocation
+                result = fn(state)
+        except TypeError:
+            # If the wrapped object isn't callable, but exposes 'invoke', use it.
+            if hasattr(fn, "invoke"):
+                result = fn.invoke(state)
+            else:
+                raise
+
+        try:
+            print(f"[GRAPH] Exit  node: {name} -> {result}")
+        except Exception:
+            print(f"[GRAPH] Exit  node: {name}")
+        return result
+
+    return wrapper
+
 
 # later: add more routes like "GENKI", "CARJACK", "MAYORISTA", "CALDERA".
 ROUTES = ["TPMS", "AA", "CLIMATIZADOR"]
@@ -71,18 +118,22 @@ def node__closed(state: ChatState) -> ChatState:
 def build_graph() -> StateGraph:
     g = StateGraph(ChatState)
 
-    # Phase nodes
-    g.add_node("triage", node__triage)
-    g.add_node("handling", node__handling)
-    g.add_node("closed", node__closed)
+    # Phase nodes (wrapped with debug helper)
+    g.add_node("triage", _wrap_node("triage", node__triage))
+    g.add_node("handling", _wrap_node("handling", node__handling))
+    g.add_node("closed", _wrap_node("closed", node__closed))
 
     # Triage LLM + routing
-    g.add_node("classify_user_intent", node__classify_user_intent)
-    g.add_node("route_by_user_intent", node__route_by_user_intent)
+    g.add_node("classify_user_intent", _wrap_node(
+        "classify_user_intent", node__classify_user_intent))
+    g.add_node("route_by_user_intent", _wrap_node(
+        "route_by_user_intent", node__route_by_user_intent))
 
     # Route handlers
     for route in ROUTES:
-        g.add_node(f"handle__{route}", subgraphs[route])
+        # subgraphs[route] is a compiled StateGraph/callable — wrap it too
+        g.add_node(f"handle__{route}", _wrap_node(
+            f"handle__{route}", subgraphs[route]))
 
     # START -> triage
     g.add_edge(START, "triage")

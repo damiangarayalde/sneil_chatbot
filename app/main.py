@@ -16,7 +16,7 @@ def run_chatbot():
         "next": None,
         "handling_channel": None,
         "confidence": None,
-        "locked_route": "TPMS",
+        "locked_route": None,
         "routing_attempts": 0,
         "triage_question": None,
         "triage_summary": None,
