@@ -95,8 +95,6 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
     classifier_llm = llm.with_structured_output(
         UserIntentClassifier_output_format)
 
-    print("Invoking classify_user_intent_node...")
-
     # Build common template variables expected by route prompts and shared texts.
     # Some shared prompts reference `{from}` and route prompts may use `{text}` and `{history}`.
     # exclude latest user message from history
@@ -134,7 +132,7 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
     # )
 
     print(
-        f"Determined handling channel: {result.handling_channel}, (confidence: {result.confidence})")
+        f"---> Inside: node__classify_user_intent .....Determined handling channel: {result.handling_channel}, (confidence: {result.confidence})\n")
 
     # If confidence is high enough OR attempts exceeded, lock route and proceed
     if float(result.confidence) >= ROUTE_LOCK_THRESHOLD or attempts >= MAX_ROUTING_ATTEMPTS:

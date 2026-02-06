@@ -11,9 +11,10 @@ def node__route_by_user_intent(state: ChatState) -> ChatState:
     """
     locked = state.get("locked_route")
     if not locked:
-        print("route_by_user_intent: missing locked_route -> returning to triage")
+        print("---> Inside: node__route_by_user_intent .....missing locked_route -> returning to triage\n")
         return {"next": "triage"}
 
     chosen = f"handle__{locked}"
-    print(f"route_by_user_intent: locked_route={locked} -> {chosen}")
+    print(
+        f"---> Inside: node__route_by_user_intent ..... locked_route={locked} -> {chosen}\n")
     return {"next": chosen}
