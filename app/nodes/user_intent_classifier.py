@@ -126,11 +126,6 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
     result = classifier_llm.invoke(
         classifier_prompt.format_messages(**fmt_kwargs))
 
-    # TODO: delete later (kept for reference / debugging)
-    # result = classifier_llm.invoke(
-    #     classifier_prompt.format_messages(message=last_message)
-    # )
-
     print(
         f"---> Inside: node__classify_user_intent .....Determined handling channel: {result.handling_channel}, (confidence: {result.confidence})\n")
 
@@ -143,15 +138,16 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
             "triage_question": None,
             "next": "route_by_user_intent",
         }
+    else:
+        # Low confidence: ask one clarifying question, increment attempts, and end the run (wait for user reply)
+        question = (result.clarifying_question or "").strip(
+        ) or _fallback_clarifying_question(result.handling_channel)
 
-    # Low confidence: ask one clarifying question, increment attempts, and end the run (wait for user reply)
-    question = (result.clarifying_question or "").strip(
-    ) or _fallback_clarifying_question(result.handling_channel)
-    return {
-        "handling_channel": result.handling_channel,
-        "confidence": float(result.confidence),
-        "routing_attempts": attempts + 1,
-        "triage_question": question,
-        "messages": [AIMessage(content=question)],
-        "next": "closed",
-    }
+        return {
+            "handling_channel": result.handling_channel,
+            "confidence": float(result.confidence),
+            "routing_attempts": attempts + 1,
+            "triage_question": question,
+            "messages": [AIMessage(content=question)],
+            "next": "closed",
+        }
