@@ -6,11 +6,11 @@ from app.nodes.user_intent_classifier import node__classify_user_intent
 from app.nodes.user_intent_router import node__route_by_user_intent
 from app.nodes.phase_nodes import node__triage, node__handling, node__closed
 from app.graph_utils import wrap_node
-# from app.utils import get_routes
+from app.utils import get_routes
 
 # Routes are config-driven (config/routes.(yaml|yml))
-# later: add more routes like "GENKI", "CARJACK", "MAYORISTA", "CALDERA".
-ROUTES = ["TPMS", "AA", "CLIMATIZADOR"]  # = get_routes()
+ROUTES = get_routes()
+
 # Pre-build route subgraphs
 subgraphs = {route: make_route_subgraph(route) for route in ROUTES}
 

@@ -1,5 +1,5 @@
 from app.types import ChatState
-# from app.utils import is_valid_route
+from app.utils import is_valid_route
 
 
 def node__route_by_user_intent(state: ChatState) -> ChatState:
@@ -12,8 +12,7 @@ def node__route_by_user_intent(state: ChatState) -> ChatState:
     """
     locked = state.get("locked_route")
 
-    if not locked:
-        # if not is_valid_route(locked):
+    if not is_valid_route(locked):
         print("---> Inside: node__route_by_user_intent ..... missing/invalid locked_route -> returning to triage\n")
         return {"next": "triage"}
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.types import ChatState
-# from app.utils import is_valid_route
+from app.utils import is_valid_route
 
 # NOTE:
 # These are *phase controller* nodes for the top-level graph.
@@ -20,9 +20,8 @@ def node__triage(state: ChatState) -> ChatState:
     - If a valid route is already locked, skip triage LLM and jump to `handling`.
     - Otherwise, run the triage LLM node (`classify_user_intent`).
     """
-    # locked = state.get("locked_route")
-    # if is_valid_route(locked):
-    if state.get("locked_route"):
+    locked = state.get("locked_route")
+    if is_valid_route(locked):
         return {"phase": "triage", "next": "handling"}
     return {"phase": "triage", "next": "classify_user_intent"}
 
@@ -44,7 +43,7 @@ def node__handling(state: ChatState) -> ChatState:
         return {"phase": "handling", "next": nxt}
 
     locked = state.get("locked_route")
-    if locked:  # is_valid_route(locked):
+    if is_valid_route(locked):
         return {"phase": "handling", "next": f"handle__{locked}"}
 
     else:  # If we dont have a locked route, then re-run triage
