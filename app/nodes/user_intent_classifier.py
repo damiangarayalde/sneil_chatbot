@@ -112,15 +112,13 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
     # Use the last user message to classify the route and confidence
     last_message = state["messages"][-1].content
 
-    # --- HARD GUARD: low-info user replies should NOT lock a route ---
+    # --- HARD GUARD: low-info user replies should NOT lock a route
     if _is_low_info(last_message):
         current_guess = state.get("handling_channel") or None
-
         q = _route_disambiguation_question(current_guess)
         return {
-            # result.handling_channel,
             "handling_channel": current_guess,
-            "confidence": 0,  # min(float(result.confidence), 0.49),
+            "confidence": min(float(state.get("confidence", 0)), 0),
             "routing_attempts": state.get("routing_attempts", 0) + 1,
             "triage_question": q,
             "messages": [AIMessage(content=q)],
@@ -128,7 +126,6 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
         }
 
     # If the msg pass the basic low-info filter, proceed with normal classification flow. This allows for some borderline cases to be classified based on their content, while still preventing obviously unhelpful messages from locking routes.
-    # else:
     classifier_llm = llm.with_structured_output(
         UserIntentClassifier_output_format)
 
@@ -171,7 +168,7 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
         classifier_prompt.format_messages(**fmt_kwargs))
 
     print(
-        f"---> Inside: node__classify_user_intent .....Determined handling channel: {result.handling_channel}, (confidence: {result.confidence})\n"
+        f"---> Inside: node__classify_user_intent \nDetermined handling channel: {result.handling_channel}\nconfidence: {result.confidence})\n"
     )
 
     # If confidence is high enough OR attempts exceeded, lock route and proceed
