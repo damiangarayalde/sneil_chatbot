@@ -8,6 +8,8 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 EMBED_MODEL = "text-embedding-3-small"
 
+# run with: python scripts/build_indexes.py --products TPMS AA --rebuild
+
 
 def _find_repo_root(start: Path) -> Path:
     """Find the repository root even if this script is executed from another folder."""
@@ -59,7 +61,8 @@ def build_index(product_id: str):
 
     docs = []
     for i, docx in enumerate(docx_files, 1):
-        print(f"   [{i}/{len(docx_files)}] Loading: {docx.name}...", end=" ", flush=True)
+        print(f"   [{i}/{len(docx_files)}] Loading: {docx.name}...",
+              end=" ", flush=True)
         docs.extend(Docx2txtLoader(str(docx)).load())
         print("✓")
 
@@ -69,7 +72,8 @@ def build_index(product_id: str):
         return
 
     print("✂️  Splitting documents into chunks (size: 900, overlap: 150)...")
-    splitter = RecursiveCharacterTextSplitter(chunk_size=900, chunk_overlap=150)
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=900, chunk_overlap=150)
     chunks = splitter.split_documents(docs)
     print(f"✅ Created {len(chunks)} chunks\n")
 

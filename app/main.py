@@ -4,44 +4,33 @@ from langchain_core.messages import HumanMessage
 
 load_dotenv()
 
+# Build graph once
 graph = build_graph()
 
 
 def run_chatbot():
-    # Keep a single in-memory state across turns (REPL).
-    # In production (WhatsApp/webhook), you would persist this by thread_id.
-    state = {
-        "messages": [],
-        "phase": "triage",
-        "next": None,
-        "handling_channel": None,
-        "confidence": None,
-        "locked_route": None,
-        "routing_attempts": 0,
-        "triage_question": None,
-        "triage_summary": None,
-        "attempts": {},
-        "retrieved": None,
-        "answer": None,
-    }
+    # thread_id identifies a unique WhatsApp conversation
+    user_id = input("Enter Phone Number (thread_id): ")
+    config = {"configurable": {"thread_id": user_id}}
+
+    print(f"--- Chat Session: {user_id} ---")
 
     while True:
-        user_input = input("Message: ")
+        user_input = input("User: ")
         if user_input.strip().lower() == "exit":
-            print("Bye")
             break
 
-        # Append the user's message to the conversation state
-        state.setdefault("messages", []).append(
-            HumanMessage(content=user_input))
+        # We only send the NEW message.
+        # The Checkpointer pulls the previous history and phase from the DB automatically.
+        input_data = {"messages": [HumanMessage(content=user_input)]}
 
-        # Invoke the compiled graph to process the state and produce a response
-        state = graph.invoke(state)
+        # We don't need to assign 'state = graph.invoke' because the DB persists it.
+        # We just invoke to trigger the next turn.
+        output = graph.invoke(input_data, config=config)
 
-        # Display last assistant reply
-        if state.get("messages"):
-            last_message = state["messages"][-1]
-            print(f"Assistant: {last_message.content}")
+        # Print the last message from the assistant
+        if output.get("messages"):
+            print(f"Assistant: {output['messages'][-1].content}")
 
 
 if __name__ == "__main__":
