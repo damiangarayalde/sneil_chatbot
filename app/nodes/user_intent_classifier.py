@@ -21,8 +21,6 @@ CLASSIFIER_HISTORY_MAX_CHARS = 2500
 
 class UserIntentClassifier_output_format(BaseModel):
     """Structured output model used to enforce the classifier's response shape."""
-
-    # handling_channel: str = Field(
     handling_channel: Literal["TPMS", "AA", "CLIMATIZADOR"] = Field(
         ...,
         description="Clasifica el tipo de mensaje como un route_id válido (ej: TPMS, AA, CLIMATIZADOR).",
@@ -41,6 +39,8 @@ class UserIntentClassifier_output_format(BaseModel):
         if v not in ALLOWED_ROUTES:
             raise ValueError(f"Invalid handling_channel: {v}")
         return v
+
+# delete below -------#
 
 
 def _role_label(msg: BaseMessage) -> str:
@@ -70,14 +70,35 @@ def _format_history(messages: list[BaseMessage]) -> str:
         history = "…(recortado)\n" + history
 
     return history
+# ------- delete above -------#
 
 
-def _fallback_clarifying_question(route_guess: str) -> str:
-    # Fallback in case LLM does not return clarifying_question.
+# Treat these as "low information" replies that should NOT lock a route
+LOW_INFO_MSGS = {
+    "hola", "buenas", "buen día", "buen dia", "buenas tardes", "buenas noches",
+    "ok", "oka", "dale", "listo", "joya", "perfecto", "bien",
+    "si", "sí", "no", "seguro", "claro", "gracias", "👍", "👌"
+}
+
+
+def _is_low_info(text: str) -> bool:
+    t = (text or "").strip().lower()
+    if not t:
+        return True
+    if t in LOW_INFO_MSGS:
+        return True
+    # very short acknowledgements are usually not enough to lock
+    if len(t) <= 3:
+        return True
+    return False
+
+
+def _route_disambiguation_question(route_guess: str) -> str:
+    # Route-specific fallback if you already have a good guess
     if route_guess == "TPMS":
-        return "¿Tu problema es sobre sensores TPMS que no aparecen/lecturas inestables, o sobre instalación/configuración?"
+        return "¿Es un problema de lectura de presión/temperatura, sensores que no aparecen, o instalación/configuración del TPMS?"
     if route_guess == "AA":
-        return "¿Es sobre aire acondicionado (AA) instalación/potencia/consumo, o un problema de rendimiento (enfriamiento/calefacción)?"
+        return "¿Es sobre instalación/potencia/consumo del AA, o sobre rendimiento (no enfría / no calienta / caudal)?"
     if route_guess == "CLIMATIZADOR":
         return "¿Es sobre instalación/uso del climatizador o sobre rendimiento/consumo/ruidos?"
     return "¿Podés decirme qué producto es y cuál es el problema principal?"
@@ -91,15 +112,38 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
     # Use the last user message to classify the route and confidence
     last_message = state["messages"][-1].content
 
-    # Create an LLM call that produces structured output matching UserIntentClassifier_output_format
+    # --- HARD GUARD: low-info user replies should NOT lock a route ---
+    if _is_low_info(last_message):
+        current_guess = state.get("handling_channel") or None
+
+        q = _route_disambiguation_question(current_guess)
+        return {
+            # result.handling_channel,
+            "handling_channel": current_guess,
+            "confidence": 0,  # min(float(result.confidence), 0.49),
+            "routing_attempts": state.get("routing_attempts", 0) + 1,
+            "triage_question": q,
+            "messages": [AIMessage(content=q)],
+            "next": "closed",
+        }
+
+    # If the msg pass the basic low-info filter, proceed with normal classification flow. This allows for some borderline cases to be classified based on their content, while still preventing obviously unhelpful messages from locking routes.
+    # else:
     classifier_llm = llm.with_structured_output(
         UserIntentClassifier_output_format)
 
-    # Build common template variables expected by route prompts and shared texts.
-    # Some shared prompts reference `{from}` and route prompts may use `{text}` and `{history}`.
-    # exclude latest user message from history
+    # Build history as list[BaseMessage] (best practice). Exclude current user message.
     prior_messages = state.get("messages", [])[:-1]
+    # prior_messages: list[BaseMessage] = state.get("messages", [])[:-1]
+
     history = _format_history(prior_messages)
+
+    # filtered = []
+    # for m in prior_messages:
+    #     if isinstance(m, (HumanMessage, AIMessage)):
+    #         filtered.append(m)
+
+    # history: list[BaseMessage] = filtered[-CLASSIFIER_HISTORY_MAX_MESSAGES:]
 
     # Try to extract sender/phone info from the last message metadata if present
     last_msg_obj = state["messages"][-1]
@@ -117,7 +161,7 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
     fmt_kwargs = {
         "user_text": last_message,
         "text": last_message,  # kept for compatibility in case prompts reference it
-        "history": history,
+        "history": history,    # MUST be list[BaseMessage]
         "from": from_val,
         "routing_attempts": attempts,
         "triage_summary": triage_summary,
@@ -140,9 +184,9 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
             "next": "route_by_user_intent",
         }
 
-    # Low confidence: ask one clarifying question, increment attempts, and end the run (wait for user reply)
+    # Low confidence: ask one clarifying question (must not be generic)
     question = (result.clarifying_question or "").strip(
-    ) or _fallback_clarifying_question(result.handling_channel)
+    ) or _route_disambiguation_question(result.handling_channel)
     return {
         "handling_channel": result.handling_channel,
         "confidence": float(result.confidence),
