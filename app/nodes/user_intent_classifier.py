@@ -1,11 +1,11 @@
 from typing import Literal, Optional
-from pydantic import BaseModel, Field  # , field_validator
+from pydantic import BaseModel, Field, field_validator
 from app.types import ChatState
 from app.prompts.prompt_utils import make_chat_prompt_for_route
-from app.utils import init_llm  # , get_routes, is_valid_route, get_classifier_cfg
+from app.utils import init_llm, get_routes, is_valid_route, get_classifier_cfg
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 
-# ALLOWED_ROUTES = set(get_routes())
+ALLOWED_ROUTES = set(get_routes())
 
 # Initialize the chat model used by the application
 llm = init_llm(model="gpt-4o-mini", temperature=0)
@@ -37,13 +37,13 @@ class UserIntentClassifier_output_format(BaseModel):
         description="If confidence is low, ask ONE short clarifying question that would most improve routing.",
     )
 
-    # @field_validator("handling_channel")
-    # @classmethod
-    # def validate_route(cls, v: str) -> str:
-    #     v = (v or "").strip()
-    #     if v not in ALLOWED_ROUTES:
-    #         raise ValueError(f"Invalid handling_channel: {v}")
-    #     return v
+    @field_validator("handling_channel")
+    @classmethod
+    def validate_route(cls, v: str) -> str:
+        v = (v or "").strip()
+        if v not in ALLOWED_ROUTES:
+            raise ValueError(f"Invalid handling_channel: {v}")
+        return v
 
 
 def _role_label(msg: BaseMessage) -> str:
