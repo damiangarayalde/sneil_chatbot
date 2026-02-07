@@ -2,7 +2,7 @@ from typing import Literal, Optional
 from pydantic import BaseModel, Field, field_validator
 from app.types import ChatState
 from app.prompts.prompt_utils import make_chat_prompt_for_route
-from app.utils import init_llm, get_routes, is_valid_route, get_classifier_cfg
+from app.utils import init_llm, get_routes
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 
 ALLOWED_ROUTES = set(get_routes())
@@ -23,12 +23,9 @@ class UserIntentClassifier_output_format(BaseModel):
     """Structured output model used to enforce the classifier's response shape."""
 
     # handling_channel: str = Field(
-    #     ...,
-    #     description="Clasifica el tipo de mensaje como un route_id válido (ej: TPMS, AA, CLIMATIZADOR).",
-    # )
     handling_channel: Literal["TPMS", "AA", "CLIMATIZADOR"] = Field(
         ...,
-        description="Clasifica el tipo de mensaje como 'TPMS', 'AA' o 'CLIMATIZADOR'.",
+        description="Clasifica el tipo de mensaje como un route_id válido (ej: TPMS, AA, CLIMATIZADOR).",
     )
     confidence: float = Field(..., ge=0, le=1)
 
@@ -75,20 +72,6 @@ def _format_history(messages: list[BaseMessage]) -> str:
     return history
 
 
-# IMPORTANT: this is the key change: the human template now includes history + attempts + triage_summary.
-# (No unnecessary edits beyond adding the fields you explicitly requested.)
-classifier_prompt, _ = make_chat_prompt_for_route(
-    "CLASSIFIER",
-    (
-        "Historial reciente (puede estar vacío):\n{history}\n\n"
-        "Intentos de ruteo hasta ahora: {routing_attempts}\n"
-        "Resumen de triage actual (puede estar vacío): {triage_summary}\n"
-        "Sender (si existe): {from}\n\n"
-        "Último mensaje del usuario:\n{user_text}"
-    ),
-)
-
-
 def _fallback_clarifying_question(route_guess: str) -> str:
     # Fallback in case LLM does not return clarifying_question.
     if route_guess == "TPMS":
@@ -101,7 +84,7 @@ def _fallback_clarifying_question(route_guess: str) -> str:
 
 
 # Build the classifier prompt from config (prompt_file under CLASSIFIER)
-# classifier_prompt, _ = make_chat_prompt_for_route("CLASSIFIER")
+classifier_prompt, _ = make_chat_prompt_for_route("CLASSIFIER")
 
 
 def node__classify_user_intent(state: ChatState) -> ChatState:
