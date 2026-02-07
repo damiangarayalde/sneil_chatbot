@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from app.types import ChatState
+# from app.utils import is_valid_route
 
 # NOTE:
 # These are *phase controller* nodes for the top-level graph.
@@ -16,9 +17,11 @@ def node__triage(state: ChatState) -> ChatState:
     """Top-level TRIAGE phase controller.
 
     Incremental behavior:
-    - If a route is already locked, skip triage LLM and jump to `handling`.
+    - If a valid route is already locked, skip triage LLM and jump to `handling`.
     - Otherwise, run the triage LLM node (`classify_user_intent`).
     """
+    # locked = state.get("locked_route")
+    # if is_valid_route(locked):
     if state.get("locked_route"):
         return {"phase": "triage", "next": "handling"}
     return {"phase": "triage", "next": "classify_user_intent"}
@@ -32,16 +35,19 @@ def node__handling(state: ChatState) -> ChatState:
     - Else derive handler from `locked_route`.
     - Else fall back to triage (recover).
 
+    # - If `next` already points to a handler node (handle__X), keep it.
+    # - Otherwise, derive handler from locked_route.
+    # - If the locked route is missing/invalid, bounce back to triage.
     """
     nxt = state.get("next")
     if isinstance(nxt, str) and nxt.startswith("handle__"):
         return {"phase": "handling", "next": nxt}
 
     locked = state.get("locked_route")
-    if locked:
+    if locked:  # is_valid_route(locked):
         return {"phase": "handling", "next": f"handle__{locked}"}
 
-    else:  # If we don't have a locked route, we cannot safely dispatch.
+    else:  # If we dont have a locked route, then re-run triage
         return {"phase": "handling", "next": "triage"}
 
 

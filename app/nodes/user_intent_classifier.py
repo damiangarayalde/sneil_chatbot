@@ -1,10 +1,11 @@
 from typing import Literal, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field  # , field_validator
 from app.types import ChatState
 from app.prompts.prompt_utils import make_chat_prompt_for_route
-from app.utils import init_llm
+from app.utils import init_llm  # , get_routes, is_valid_route, get_classifier_cfg
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 
+# ALLOWED_ROUTES = set(get_routes())
 
 # Initialize the chat model used by the application
 llm = init_llm(model="gpt-4o-mini", temperature=0)
@@ -19,8 +20,12 @@ CLASSIFIER_HISTORY_MAX_CHARS = 2500
 
 
 class UserIntentClassifier_output_format(BaseModel):
-    # Structured output model used to enforce the classifier's response shape
+    """Structured output model used to enforce the classifier's response shape."""
 
+    # handling_channel: str = Field(
+    #     ...,
+    #     description="Clasifica el tipo de mensaje como un route_id válido (ej: TPMS, AA, CLIMATIZADOR).",
+    # )
     handling_channel: Literal["TPMS", "AA", "CLIMATIZADOR"] = Field(
         ...,
         description="Clasifica el tipo de mensaje como 'TPMS', 'AA' o 'CLIMATIZADOR'.",
@@ -29,10 +34,16 @@ class UserIntentClassifier_output_format(BaseModel):
 
     clarifying_question: Optional[str] = Field(
         None,
-        description=(
-            "If confidence is low, ask ONE short clarifying question that would most improve routing."
-        ),
+        description="If confidence is low, ask ONE short clarifying question that would most improve routing.",
     )
+
+    # @field_validator("handling_channel")
+    # @classmethod
+    # def validate_route(cls, v: str) -> str:
+    #     v = (v or "").strip()
+    #     if v not in ALLOWED_ROUTES:
+    #         raise ValueError(f"Invalid handling_channel: {v}")
+    #     return v
 
 
 def _role_label(msg: BaseMessage) -> str:
@@ -84,7 +95,13 @@ def _fallback_clarifying_question(route_guess: str) -> str:
         return "¿Tu problema es sobre sensores TPMS que no aparecen/lecturas inestables, o sobre instalación/configuración?"
     if route_guess == "AA":
         return "¿Es sobre aire acondicionado (AA) instalación/potencia/consumo, o un problema de rendimiento (enfriamiento/calefacción)?"
-    return "¿Es sobre requisitos de instalación del climatizador (techo/ventilación/potencia) o un problema de rendimiento (flujo de aire/enfriamiento)?"
+    if route_guess == "CLIMATIZADOR":
+        return "¿Es sobre instalación/uso del climatizador o sobre rendimiento/consumo/ruidos?"
+    return "¿Podés decirme qué producto es y cuál es el problema principal?"
+
+
+# Build the classifier prompt from config (prompt_file under CLASSIFIER)
+# classifier_prompt, _ = make_chat_prompt_for_route("CLASSIFIER")
 
 
 def node__classify_user_intent(state: ChatState) -> ChatState:
@@ -127,7 +144,8 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
         classifier_prompt.format_messages(**fmt_kwargs))
 
     print(
-        f"---> Inside: node__classify_user_intent .....Determined handling channel: {result.handling_channel}, (confidence: {result.confidence})\n")
+        f"---> Inside: node__classify_user_intent .....Determined handling channel: {result.handling_channel}, (confidence: {result.confidence})\n"
+    )
 
     # If confidence is high enough OR attempts exceeded, lock route and proceed
     if float(result.confidence) >= ROUTE_LOCK_THRESHOLD or attempts >= MAX_ROUTING_ATTEMPTS:
@@ -138,16 +156,15 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
             "triage_question": None,
             "next": "route_by_user_intent",
         }
-    else:
-        # Low confidence: ask one clarifying question, increment attempts, and end the run (wait for user reply)
-        question = (result.clarifying_question or "").strip(
-        ) or _fallback_clarifying_question(result.handling_channel)
 
-        return {
-            "handling_channel": result.handling_channel,
-            "confidence": float(result.confidence),
-            "routing_attempts": attempts + 1,
-            "triage_question": question,
-            "messages": [AIMessage(content=question)],
-            "next": "closed",
-        }
+    # Low confidence: ask one clarifying question, increment attempts, and end the run (wait for user reply)
+    question = (result.clarifying_question or "").strip(
+    ) or _fallback_clarifying_question(result.handling_channel)
+    return {
+        "handling_channel": result.handling_channel,
+        "confidence": float(result.confidence),
+        "routing_attempts": attempts + 1,
+        "triage_question": question,
+        "messages": [AIMessage(content=question)],
+        "next": "closed",
+    }

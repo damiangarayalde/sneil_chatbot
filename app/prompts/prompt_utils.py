@@ -68,6 +68,32 @@ def get_route_config(route_id: str) -> tuple:
     return route_prompt, max_chars, handoff_after, route_cfg
 
 
+# def get_default_human_template(route_id: str) -> str:
+#     """Default human template per route_id.
+
+#     Centralizes input formatting so callers don't duplicate templates.
+#     """
+#     if route_id == "CLASSIFIER":
+#         # ✅ This is the block you said you want to keep.
+#         return (
+#             "Historial reciente (puede estar vacío):\n{history}\n\n"
+#             "Intentos de ruteo hasta ahora: {routing_attempts}\n"
+#             "Resumen de triage actual (puede estar vacío): {triage_summary}\n"
+#             "Sender (si existe): {from}\n\n"
+#             "Último mensaje del usuario:\n{user_text}"
+#         )
+
+#     # Default for route modules (safe generic)
+#     return "User: {user_text}"
+
+# def make_chat_prompt_for_route(route_id: str, human_template: str | None = None) -> tuple[ChatPromptTemplate, dict]:
+#     """Create a ChatPromptTemplate for a given route id.
+
+#     Returns: (template, route_cfg)
+
+#     If human_template is None, a default is selected based on route_id.
+#     """
+
 def make_chat_prompt_for_route(route_id: str, human_template: str) -> tuple[ChatPromptTemplate, dict]:
     """Create a ChatPromptTemplate for a given route id and return it
     along with the raw route config dict.
@@ -78,5 +104,9 @@ def make_chat_prompt_for_route(route_id: str, human_template: str) -> tuple[Chat
     """
     route_prompt, max_chars, handoff_after, route_cfg = get_route_config(
         route_id)
+
+    # if human_template is None:
+    #     human_template = get_default_human_template(route_id)
+
     tpl = make_chat_prompt(route_id, route_prompt, max_chars, human_template)
     return tpl, route_cfg
