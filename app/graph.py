@@ -20,28 +20,30 @@ memory = get_sqlite_checkpointer()
 def build_graph() -> StateGraph:
     g = StateGraph(ChatState)
 
-    # Phase nodes
-    g.add_node("triage",    wrap_node("triage",     node__triage))
-    g.add_node("handling",  wrap_node("handling",   node__handling))
+    # Phase nodes (kept for now, but no longer used in the main path)
+    # g.add_node("triage",    wrap_node("triage",     node__triage))
+    # g.add_node("handling",  wrap_node("handling",   node__handling))
     g.add_node("closed",    wrap_node("closed",     node__closed))
 
-    # Triage LLM + routing
+    # Hub
     g.add_node("classify_user_intent", wrap_node(
         "classify_user_intent", node__classify_user_intent))
 
-    # Route handlers
+    # Spokes - Route-specific handler subgraphs
     for route in ROUTES:
         g.add_node(f"handle__{route}", wrap_node(
             f"handle__{route}", subgraphs[route]))
 
     # --------------------------------------------------------------------------------------------
-    g.add_edge(START, "triage")
-
-    def _after_triage(state: ChatState) -> str:
+    def _start_router(state: ChatState) -> str:
         locked = state.get("locked_route")
         if is_valid_route(locked):
-            return "handling"
+            return f"handle__{locked}"
         return "classify_user_intent"
+
+    start_map = {"classify_user_intent": "classify_user_intent"}
+    start_map.update({f"handle__{r}": f"handle__{r}" for r in ROUTES})
+    g.add_conditional_edges(START, _start_router, start_map)
 
     def _after_classifier(state: ChatState) -> str:
         # If classifier asked a question, end this invocation
@@ -49,43 +51,28 @@ def build_graph() -> StateGraph:
             return "closed"
         locked = state.get("locked_route")
         if is_valid_route(locked):
-            return "handling"
+            return f"handle__{locked}"
         return "closed"
 
-    def _after_handling(state: ChatState) -> str:
-        nxt = state.get("next")
-        if isinstance(nxt, str) and nxt.startswith("handle__"):
-            return nxt
+    after_classifier_map = {"closed": "closed"}
+    after_classifier_map.update(
+        {f"handle__{r}": f"handle__{r}" for r in ROUTES})
+    g.add_conditional_edges("classify_user_intent",
+                            _after_classifier, after_classifier_map)
 
-        locked = state.get("locked_route")
-        if is_valid_route(locked):
-            return f"handle__{locked}"
-        return "triage"
+    # If the handler clears locked_route (topic switch), go back to hub.
+    def _after_handler(state: ChatState) -> str:
+        if state.get("locked_route") is None:
+            return "classify_user_intent"
+        return "closed"
 
-    # if locked_route present, skip classification and go straight to handling
-    g.add_conditional_edges("triage", _after_triage,
-                            {
-                                "classify_user_intent": "classify_user_intent",
-                                "handling": "handling"
-                            })
-
-    # classify_user_intent can either:
-    # - ask a clarifying question and end the run (`closed`)
-    # - proceed to routing/handling when confident.
-    g.add_conditional_edges("classify_user_intent", _after_classifier,
-                            {
-                                "closed": "closed",
-                                "handling": "handling"
-                            })
-
-    # handling -> (dispatch to handler or back to triage)
-    handling_edge_map = {"triage": "triage"}
-    handling_edge_map.update({f"handle__{r}": f"handle__{r}" for r in ROUTES})
-    g.add_conditional_edges("handling", _after_handling, handling_edge_map)
-
-    # handler -> closed -> END
     for r in ROUTES:
-        g.add_edge(f"handle__{r}", "closed")
+        g.add_conditional_edges(
+            f"handle__{r}",
+            _after_handler,
+            {"classify_user_intent": "classify_user_intent", "closed": "closed"},
+        )
+
     g.add_edge("closed", END)
 
     return g.compile(checkpointer=memory)
