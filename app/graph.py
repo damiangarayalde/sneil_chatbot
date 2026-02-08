@@ -37,16 +37,25 @@ def build_graph() -> StateGraph:
         g.add_node(f"handle__{route}", wrap_node(
             f"handle__{route}", subgraphs[route]))
 
-    # START -> triage
+    # --------------------------------------------------------------------------------------------
     g.add_edge(START, "triage")
-    # triage -> (classifier or handling)
-    g.add_conditional_edges("triage", lambda s: s.get("next"), {
-                            "classify_user_intent": "classify_user_intent", "handling": "handling"})
+
+    # if locked_route present, skip classification and go straight to handling
+    g.add_conditional_edges("triage", lambda s: s.get("next"),
+                            {
+        "classify_user_intent": "classify_user_intent",
+        "handling": "handling"
+    })
+
     # classify_user_intent can either:
     # - ask a clarifying question and end the run (`closed`)
     # - proceed to routing/handling when confident.
-    g.add_conditional_edges("classify_user_intent", lambda s: s.get(
-        "next"), {"closed": "closed", "route_by_user_intent": "route_by_user_intent"})
+    g.add_conditional_edges("classify_user_intent", lambda s: s.get("next"),
+                            {
+        "closed": "closed",
+        "route_by_user_intent": "route_by_user_intent"
+    })
+
     # router -> handling
     g.add_edge("route_by_user_intent", "handling")
 

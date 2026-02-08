@@ -21,7 +21,7 @@ CLASSIFIER_HISTORY_MAX_CHARS = 2500
 
 class UserIntentClassifier_output_format(BaseModel):
     """Structured output model used to enforce the classifier's response shape."""
-    handling_channel: Literal["TPMS", "AA", "CLIMATIZADOR"] = Field(
+    estimated_route: Literal["TPMS", "AA", "CLIMATIZADOR"] = Field(
         ...,
         description="Clasifica el tipo de mensaje como un route_id válido (ej: TPMS, AA, CLIMATIZADOR).",
     )
@@ -32,12 +32,12 @@ class UserIntentClassifier_output_format(BaseModel):
         description="If confidence is low, ask ONE short clarifying question that would most improve routing.",
     )
 
-    @field_validator("handling_channel")
+    @field_validator("estimated_route")
     @classmethod
     def validate_route(cls, v: str) -> str:
         v = (v or "").strip()
         if v not in ALLOWED_ROUTES:
-            raise ValueError(f"Invalid handling_channel: {v}")
+            raise ValueError(f"Invalid estimated_route: {v}")
         return v
 
 # delete below -------#
@@ -114,10 +114,9 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
 
     # --- HARD GUARD: low-info user replies should NOT lock a route
     if _is_low_info(last_message):
-        current_guess = state.get("handling_channel") or None
+        current_guess = state.get("estimated_route") or None
         q = _route_disambiguation_question(current_guess)
         return {
-            "handling_channel": current_guess,
             "confidence": min(float(state.get("confidence", 0)), 0),
             "routing_attempts": state.get("routing_attempts", 0) + 1,
             "triage_question": q,
@@ -168,24 +167,22 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
         classifier_prompt.format_messages(**fmt_kwargs))
 
     print(
-        f"---> Inside: node__classify_user_intent \nDetermined handling channel: {result.handling_channel}\nconfidence: {result.confidence})\n"
+        f"---> Inside: node__classify_user_intent \nDetermined estimated route: {result.estimated_route}\nconfidence: {result.confidence})\n"
     )
 
     # If confidence is high enough OR attempts exceeded, lock route and proceed
     if float(result.confidence) >= ROUTE_LOCK_THRESHOLD or attempts >= MAX_ROUTING_ATTEMPTS:
         return {
-            "handling_channel": result.handling_channel,
             "confidence": float(result.confidence),
-            "locked_route": result.handling_channel,
+            "locked_route": result.estimated_route,
             "triage_question": None,
             "next": "route_by_user_intent",
         }
 
     # Low confidence: ask one clarifying question (must not be generic)
     question = (result.clarifying_question or "").strip(
-    ) or _route_disambiguation_question(result.handling_channel)
+    ) or _route_disambiguation_question(result.estimated_route)
     return {
-        "handling_channel": result.handling_channel,
         "confidence": float(result.confidence),
         "routing_attempts": attempts + 1,
         "triage_question": question,
