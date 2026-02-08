@@ -1,6 +1,6 @@
 from pathlib import Path
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from app.utils import load_cfg
+from app.core.utils import load_cfg
 
 
 def load_prompt(path: str) -> str:

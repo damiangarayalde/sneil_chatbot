@@ -5,7 +5,7 @@ from langchain_core.messages import AIMessage
 from app.core.types import ChatState
 # Use route-based helper that builds the prompt from route_id
 from app.core.prompts.builders import make_chat_prompt_for_route
-from app.utils import init_llm
+from app.core.utils import init_llm
 # from app.nodes.rag import get_retriever
 # from app.tools.catalog_tool import catalog_lookup
 

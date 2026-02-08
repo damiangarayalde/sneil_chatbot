@@ -2,9 +2,9 @@ from typing import Literal, Optional
 from pydantic import BaseModel, Field, field_validator
 from app.core.types import ChatState
 from app.core.prompts.builders import make_chat_prompt_for_route
-from app.utils import init_llm, get_routes
+from app.core.utils import init_llm, get_routes
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
-from app.utils import is_valid_route
+from app.core.utils import is_valid_route
 
 ALLOWED_ROUTES = set(get_routes())
 
