@@ -4,6 +4,7 @@ from app.types import ChatState
 from app.prompts.prompt_utils import make_chat_prompt_for_route
 from app.utils import init_llm, get_routes
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
+from app.utils import is_valid_route
 
 ALLOWED_ROUTES = set(get_routes())
 
@@ -109,6 +110,12 @@ classifier_prompt, _ = make_chat_prompt_for_route("CLASSIFIER")
 
 
 def node__classify_user_intent(state: ChatState) -> ChatState:
+    # PASS-THROUGH: if a route is already locked, do nothing.
+    # Graph edges will send execution to the correct handler.
+    locked = state.get("locked_route")
+    if is_valid_route(locked):
+        return {}
+
     # Use the last user message to classify the route and confidence
     last_message = state["messages"][-1].content
 
@@ -121,7 +128,7 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
             "routing_attempts": state.get("routing_attempts", 0) + 1,
             "triage_question": q,
             "messages": [AIMessage(content=q)],
-            "next": "closed",
+            #   "next": "closed",
         }
 
     # If the msg pass the basic low-info filter, proceed with normal classification flow. This allows for some borderline cases to be classified based on their content, while still preventing obviously unhelpful messages from locking routes.
@@ -176,7 +183,7 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
             "confidence": float(result.confidence),
             "locked_route": result.estimated_route,
             "triage_question": None,
-            "next": "route_by_user_intent",
+            #   "next": "route_by_user_intent",
         }
 
     # Low confidence: ask one clarifying question (must not be generic)
@@ -187,5 +194,5 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
         "routing_attempts": attempts + 1,
         "triage_question": question,
         "messages": [AIMessage(content=question)],
-        "next": "closed",
+        # "next": "closed",
     }
