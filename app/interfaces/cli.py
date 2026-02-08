@@ -1,5 +1,5 @@
 from dotenv import load_dotenv
-from app.core.graph.builder import build_graph
+from app.core.graph.build import build_graph
 from langchain_core.messages import HumanMessage, AIMessage
 
 load_dotenv()
