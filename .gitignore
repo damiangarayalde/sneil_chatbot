@@ -13,5 +13,7 @@ knowledge/
 app/data/**
 **/data/**
 .DS_Store
+**/__pycache__/
+*.pyc
 # Virtual environments
 .venv

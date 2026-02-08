@@ -9,10 +9,9 @@ load_dotenv()
 
 
 # ---- Config loading (routes) ----
-# We support both names to avoid drift: config/routes.yaml or config/routes.yml
 _CFG_CANDIDATES = [
-    Path("config/routes.yaml"),
-    Path("config/routes.yml"),
+    Path("app/core/config/routes.yaml"),
+    Path("app/core/config/routes.yml"),
 ]
 
 
