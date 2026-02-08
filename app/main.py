@@ -3,8 +3,6 @@ from app.graph import build_graph
 from langchain_core.messages import HumanMessage
 
 load_dotenv()
-
-# Build graph once
 graph = build_graph()
 
 
