@@ -2,7 +2,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 from langgraph.graph import StateGraph, START, END
 from langchain_core.messages import AIMessage
-from app.types import ChatState
+from app.core.types import ChatState
 # Use route-based helper that builds the prompt from route_id
 from app.prompts.prompt_utils import make_chat_prompt_for_route
 from app.utils import init_llm

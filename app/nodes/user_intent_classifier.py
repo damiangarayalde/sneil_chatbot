@@ -1,6 +1,6 @@
 from typing import Literal, Optional
 from pydantic import BaseModel, Field, field_validator
-from app.types import ChatState
+from app.core.types import ChatState
 from app.prompts.prompt_utils import make_chat_prompt_for_route
 from app.utils import init_llm, get_routes
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
