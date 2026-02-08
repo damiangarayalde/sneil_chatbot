@@ -1,8 +1,8 @@
 from langgraph.graph import StateGraph, START, END
 from app.core.graph.state import ChatState
 from app.core.graph.nodes.route_subgraph import make_route_subgraph
-from app.core.graph.nodes.user_intent_classifier import node__classify_user_intent
-from app.core.graph.nodes.phase_nodes import node__finalize_turn
+from app.core.graph.nodes.hub import node__classify_user_intent
+from app.core.graph.nodes.lifecycle import node__finalize_turn
 from app.core.graph_utils import wrap_node
 from app.core.utils import get_routes
 from app.core.persistence import get_sqlite_checkpointer
@@ -16,7 +16,7 @@ from app.core.graph.routes import (
     end_turn_node,
 )
 
-# Routes are config-driven (config/routes.(yaml|yml))
+# Routes are config-drivens (config/routes.(yaml|yml))
 ROUTES = get_routes()
 
 # Pre-build route subgraphs
