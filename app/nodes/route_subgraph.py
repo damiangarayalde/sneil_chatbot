@@ -43,8 +43,7 @@ def make_route_subgraph(route_id: str) -> StateGraph:
     subgraph_prompt, route_cfg = make_chat_prompt_for_route(
         route_id)
     # Initialize LLM with structured output
-    llm = init_llm(model="gpt-4o-mini"  # , temperature=0.2)
-                   ).with_structured_output(HandlerOutput)
+    llm = init_llm(model="gpt-4o-mini").with_structured_output(HandlerOutput)
 
     handoff_after = route_cfg.get("handoff_after_attempts")
 
@@ -71,11 +70,10 @@ def make_route_subgraph(route_id: str) -> StateGraph:
         """
         # History management
         # history = state.get("messages", [])[:-1]
-        user_text = state["messages"][-1].content  # last_msg
-
+        last_msg = state["messages"][-1].content
         # Single LLM call
         res = llm.invoke(subgraph_prompt.format_messages(
-            user_text=user_text  # ,
+            user_text=last_msg
             # history=history
         ))
 
@@ -87,7 +85,7 @@ def make_route_subgraph(route_id: str) -> StateGraph:
         #     }
 
         return {
-            "messages": [AIMessage(content=res.content)]  # ,
+            "messages": [AIMessage(content=res.answer)]  # ,
             # "next": "closed"  # To be deleted if using more nodes like enforce_limits
         }
 
