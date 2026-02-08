@@ -1,5 +1,5 @@
 from pathlib import Path
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from app.utils import load_cfg
 
 
@@ -50,6 +50,17 @@ def make_system_text(route_id: str, route_prompt: str, max_chars: int, shared_te
 def make_chat_prompt(route_id: str, route_prompt: str, max_chars: int, human_template: str) -> ChatPromptTemplate:
     """Create a ChatPromptTemplate from system and human templates."""
     system = make_system_text(route_id, route_prompt, max_chars)
+
+    # CLASSIFIER uses message-list history (best practice) so callers can pass `history: list[BaseMessage]`.
+    # Other routes keep the simple `{user_text}` formatting.
+    if route_id == "CLASSIFIER":
+        return ChatPromptTemplate.from_messages([
+            ("system", system),
+            ("system", "Historial reciente (puede estar vacío):"),
+            MessagesPlaceholder("history"),
+            ("human", human_template),
+        ])
+
     return ChatPromptTemplate.from_messages([
         ("system", system),
         ("human", human_template),
@@ -74,9 +85,16 @@ def get_default_human_template(route_id: str) -> str:
     Centralizes input formatting so callers don't duplicate templates.
     """
     if route_id == "CLASSIFIER":
-        # ✅ This is the block you said you want to keep.
+        # ✅ Legacy (string) classifier template kept for reference.
+        # return (
+        #     "Historial reciente (puede estar vacío):\n{history}\n\n"
+        #     "Intentos de ruteo hasta ahora: {routing_attempts}\n"
+        #     "Resumen de triage actual (puede estar vacío): {triage_summary}\n"
+        #     "Sender (si existe): {from}\n\n"
+        #     "Último mensaje del usuario:\n{user_text}"
+        # )
+        # ✅ New: history is passed as list[BaseMessage] via MessagesPlaceholder("history").
         return (
-            "Historial reciente (puede estar vacío):\n{history}\n\n"
             "Intentos de ruteo hasta ahora: {routing_attempts}\n"
             "Resumen de triage actual (puede estar vacío): {triage_summary}\n"
             "Sender (si existe): {from}\n\n"

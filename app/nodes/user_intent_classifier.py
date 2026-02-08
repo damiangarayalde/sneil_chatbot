@@ -138,14 +138,21 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
     prior_messages = state.get("messages", [])[:-1]
     # prior_messages: list[BaseMessage] = state.get("messages", [])[:-1]
 
-    history = _format_history(prior_messages)
+    # Legacy string-history formatter kept above for reference:
+    # history = _format_history(prior_messages)
 
-    # filtered = []
-    # for m in prior_messages:
-    #     if isinstance(m, (HumanMessage, AIMessage)):
-    #         filtered.append(m)
+    filtered = []
+    for m in prior_messages:
+        if isinstance(m, (HumanMessage, AIMessage)):
+            filtered.append(m)
 
-    # history: list[BaseMessage] = filtered[-CLASSIFIER_HISTORY_MAX_MESSAGES:]
+    history: list[BaseMessage] = filtered[-CLASSIFIER_HISTORY_MAX_MESSAGES:]
+
+    # Cap total history size by dropping oldest messages (keeps type=list[BaseMessage]).
+    total_chars = sum(len(getattr(m, "content", "") or "") for m in history)
+    while history and total_chars > CLASSIFIER_HISTORY_MAX_CHARS:
+        dropped = history.pop(0)
+        total_chars -= len(getattr(dropped, "content", "") or "")
 
     # Try to extract sender/phone info from the last message metadata if present
     last_msg_obj = state["messages"][-1]
