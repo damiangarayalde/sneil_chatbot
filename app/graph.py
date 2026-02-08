@@ -2,7 +2,7 @@ from langgraph.graph import StateGraph, START, END
 from app.types import ChatState
 from app.nodes.route_subgraph import make_route_subgraph
 from app.nodes.user_intent_classifier import node__classify_user_intent
-from app.nodes.phase_nodes import node__triage, node__handling, node__closed
+from app.nodes.phase_nodes import node__closed
 from app.graph_utils import wrap_node
 from app.utils import get_routes, is_valid_route
 from app.persistence import get_sqlite_checkpointer
@@ -20,11 +20,6 @@ memory = get_sqlite_checkpointer()
 def build_graph() -> StateGraph:
     g = StateGraph(ChatState)
 
-    # Phase nodes (kept for now, but no longer used in the main path)
-    # g.add_node("triage",    wrap_node("triage",     node__triage))
-    # g.add_node("handling",  wrap_node("handling",   node__handling))
-    g.add_node("closed",    wrap_node("closed",     node__closed))
-
     # Hub
     g.add_node("classify_user_intent", wrap_node(
         "classify_user_intent", node__classify_user_intent))
@@ -34,7 +29,10 @@ def build_graph() -> StateGraph:
         g.add_node(f"handle__{route}", wrap_node(
             f"handle__{route}", subgraphs[route]))
 
+    g.add_node("closed",    wrap_node("closed",     node__closed))
+
     # --------------------------------------------------------------------------------------------
+
     def _start_router(state: ChatState) -> str:
         locked = state.get("locked_route")
         if is_valid_route(locked):

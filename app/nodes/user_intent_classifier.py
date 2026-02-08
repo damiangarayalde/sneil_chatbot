@@ -128,7 +128,6 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
             "routing_attempts": state.get("routing_attempts", 0) + 1,
             "triage_question": q,
             "messages": [AIMessage(content=q)],
-            #   "next": "closed",
         }
 
     # If the msg pass the basic low-info filter, proceed with normal classification flow. This allows for some borderline cases to be classified based on their content, while still preventing obviously unhelpful messages from locking routes.
@@ -183,7 +182,6 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
             "confidence": float(result.confidence),
             "locked_route": result.estimated_route,
             "triage_question": None,
-            #   "next": "route_by_user_intent",
         }
 
     # Low confidence: ask one clarifying question (must not be generic)
@@ -194,5 +192,4 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
         "routing_attempts": attempts + 1,
         "triage_question": question,
         "messages": [AIMessage(content=question)],
-        # "next": "closed",
     }
