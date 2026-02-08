@@ -1,5 +1,5 @@
 from langgraph.graph import StateGraph, START, END
-from app.core.graph.types import ChatState
+from app.core.graph.state import ChatState
 from app.nodes.route_subgraph import make_route_subgraph
 from app.nodes.user_intent_classifier import node__classify_user_intent
 from app.nodes.phase_nodes import node__finalize_turn  # node__closed (legacy)
@@ -7,7 +7,7 @@ from app.core.graph_utils import wrap_node
 from app.core.utils import get_routes
 from app.core.persistence import get_sqlite_checkpointer
 
-from app.core.graph.graph_routes import (
+from app.core.graph.routes import (
     route_node,
     handler_edge_map,
     route_from_start,

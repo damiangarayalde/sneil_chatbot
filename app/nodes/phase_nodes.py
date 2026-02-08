@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.core.graph.types import ChatState
+from app.core.graph.state import ChatState
 
 
 def node__finalize_turn(state: ChatState) -> ChatState:

@@ -4,7 +4,7 @@ import os
 import sys
 from typing import Any, Callable, Dict, List, Optional
 
-from app.core.graph.types import ChatState
+from app.core.graph.state import ChatState
 from langchain_core.messages import BaseMessage
 
 # ---- Logging config ----
