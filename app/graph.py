@@ -2,7 +2,6 @@ from langgraph.graph import StateGraph, START, END
 from app.types import ChatState
 from app.nodes.route_subgraph import make_route_subgraph
 from app.nodes.user_intent_classifier import node__classify_user_intent
-from app.nodes.user_intent_router import node__route_by_user_intent
 from app.nodes.phase_nodes import node__triage, node__handling, node__closed
 from app.graph_utils import wrap_node
 from app.utils import get_routes, is_valid_route
@@ -29,8 +28,6 @@ def build_graph() -> StateGraph:
     # Triage LLM + routing
     g.add_node("classify_user_intent", wrap_node(
         "classify_user_intent", node__classify_user_intent))
-    g.add_node("route_by_user_intent", wrap_node(
-        "route_by_user_intent", node__route_by_user_intent))
 
     # Route handlers
     for route in ROUTES:
@@ -40,7 +37,6 @@ def build_graph() -> StateGraph:
     # --------------------------------------------------------------------------------------------
     g.add_edge(START, "triage")
 
-    # --- NEW: edge decision helpers (do not rely on state["next"]) ---
     def _after_triage(state: ChatState) -> str:
         locked = state.get("locked_route")
         if is_valid_route(locked):
@@ -53,12 +49,10 @@ def build_graph() -> StateGraph:
             return "closed"
         locked = state.get("locked_route")
         if is_valid_route(locked):
-            return "route_by_user_intent"
-        # Safe fallback
+            return "handling"
         return "closed"
 
     def _after_handling(state: ChatState) -> str:
-        # Prefer explicit handler if already set
         nxt = state.get("next")
         if isinstance(nxt, str) and nxt.startswith("handle__"):
             return nxt
@@ -81,11 +75,8 @@ def build_graph() -> StateGraph:
     g.add_conditional_edges("classify_user_intent", _after_classifier,
                             {
                                 "closed": "closed",
-                                "route_by_user_intent": "route_by_user_intent"
+                                "handling": "handling"
                             })
-
-    # router -> handling
-    g.add_edge("route_by_user_intent", "handling")
 
     # handling -> (dispatch to handler or back to triage)
     handling_edge_map = {"triage": "triage"}
@@ -97,7 +88,6 @@ def build_graph() -> StateGraph:
         g.add_edge(f"handle__{r}", "closed")
     g.add_edge("closed", END)
 
-    # Compile with the persistent memory instance
     return g.compile(checkpointer=memory)
 
     # ADD SESSION TIMEOUTs
