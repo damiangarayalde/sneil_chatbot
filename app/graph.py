@@ -1,6 +1,7 @@
-import sqlite3  # New import
+# import sqlite3
+# import os
 from langgraph.graph import StateGraph, START, END
-from langgraph.checkpoint.sqlite import SqliteSaver
+# from langgraph.checkpoint.sqlite import SqliteSaver
 
 from app.types import ChatState
 from app.nodes.route_subgraph import make_route_subgraph
@@ -9,6 +10,7 @@ from app.nodes.user_intent_router import node__route_by_user_intent
 from app.nodes.phase_nodes import node__triage, node__handling, node__closed
 from app.graph_utils import wrap_node
 from app.utils import get_routes
+from app.persistence import get_sqlite_checkpointer
 
 # Routes are config-driven (config/routes.(yaml|yml))
 ROUTES = get_routes()
@@ -16,10 +18,8 @@ ROUTES = get_routes()
 # Pre-build route subgraphs
 subgraphs = {route: make_route_subgraph(route) for route in ROUTES}
 
-# Create a persistent connection to the database
-# check_same_thread=False is important for WhatsApp/Web applications
-conn = sqlite3.connect("checkpoints.db", check_same_thread=False)
-memory = SqliteSaver(conn)
+# Initialize checkpointer via the new utility
+memory = get_sqlite_checkpointer()
 
 
 def build_graph() -> StateGraph:
