@@ -33,10 +33,17 @@ def build_graph() -> StateGraph:
 
     # --------------------------------------------------------------------------------------------
 
+    # Small helpers to keep graph definitions declarative
+    def _route_node(route: str) -> str:
+        return f"handle__{route}"
+
+    def _is_locked(state: ChatState) -> bool:
+        return is_valid_route(state.get("locked_route"))
+
     def _start_router(state: ChatState) -> str:
         locked = state.get("locked_route")
-        if is_valid_route(locked):
-            return f"handle__{locked}"
+        if _is_locked(state):
+            return _route_node(locked)
         return "classify_user_intent"
 
     start_map = {"classify_user_intent": "classify_user_intent"}
@@ -48,8 +55,8 @@ def build_graph() -> StateGraph:
         if state.get("triage_question"):
             return "closed"
         locked = state.get("locked_route")
-        if is_valid_route(locked):
-            return f"handle__{locked}"
+        if _is_locked(state):
+            return _route_node(locked)
         return "closed"
 
     after_classifier_map = {"closed": "closed"}
