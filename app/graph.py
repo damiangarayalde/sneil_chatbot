@@ -5,7 +5,7 @@ from app.nodes.user_intent_classifier import node__classify_user_intent
 from app.nodes.user_intent_router import node__route_by_user_intent
 from app.nodes.phase_nodes import node__triage, node__handling, node__closed
 from app.graph_utils import wrap_node
-from app.utils import get_routes
+from app.utils import get_routes, is_valid_route
 from app.persistence import get_sqlite_checkpointer
 
 # Routes are config-driven (config/routes.(yaml|yml))
@@ -40,21 +40,49 @@ def build_graph() -> StateGraph:
     # --------------------------------------------------------------------------------------------
     g.add_edge(START, "triage")
 
+    # --- NEW: edge decision helpers (do not rely on state["next"]) ---
+    def _after_triage(state: ChatState) -> str:
+        locked = state.get("locked_route")
+        if is_valid_route(locked):
+            return "handling"
+        return "classify_user_intent"
+
+    def _after_classifier(state: ChatState) -> str:
+        # If classifier asked a question, end this invocation
+        if state.get("triage_question"):
+            return "closed"
+        locked = state.get("locked_route")
+        if is_valid_route(locked):
+            return "route_by_user_intent"
+        # Safe fallback
+        return "closed"
+
+    def _after_handling(state: ChatState) -> str:
+        # Prefer explicit handler if already set
+        nxt = state.get("next")
+        if isinstance(nxt, str) and nxt.startswith("handle__"):
+            return nxt
+
+        locked = state.get("locked_route")
+        if is_valid_route(locked):
+            return f"handle__{locked}"
+        return "triage"
+
     # if locked_route present, skip classification and go straight to handling
-    g.add_conditional_edges("triage", lambda s: s.get("next"),
+    g.add_conditional_edges("triage", _after_triage,
                             {
-        "classify_user_intent": "classify_user_intent",
-        "handling": "handling"
-    })
+                                "classify_user_intent": "classify_user_intent",
+                                "handling": "handling"
+                            })
 
     # classify_user_intent can either:
     # - ask a clarifying question and end the run (`closed`)
     # - proceed to routing/handling when confident.
-    g.add_conditional_edges("classify_user_intent", lambda s: s.get("next"),
+    g.add_conditional_edges("classify_user_intent", _after_classifier,
                             {
-        "closed": "closed",
-        "route_by_user_intent": "route_by_user_intent"
-    })
+                                "closed": "closed",
+                                "route_by_user_intent": "route_by_user_intent"
+                            })
 
     # router -> handling
     g.add_edge("route_by_user_intent", "handling")
@@ -62,8 +90,7 @@ def build_graph() -> StateGraph:
     # handling -> (dispatch to handler or back to triage)
     handling_edge_map = {"triage": "triage"}
     handling_edge_map.update({f"handle__{r}": f"handle__{r}" for r in ROUTES})
-    g.add_conditional_edges(
-        "handling", lambda s: s.get("next"), handling_edge_map)
+    g.add_conditional_edges("handling", _after_handling, handling_edge_map)
 
     # handler -> closed -> END
     for r in ROUTES:
