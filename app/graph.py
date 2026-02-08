@@ -22,9 +22,9 @@ def build_graph() -> StateGraph:
     g = StateGraph(ChatState)
 
     # Phase nodes
-    g.add_node("triage", wrap_node("triage", node__triage))
-    g.add_node("handling", wrap_node("handling", node__handling))
-    g.add_node("closed", wrap_node("closed", node__closed))
+    g.add_node("triage",    wrap_node("triage",     node__triage))
+    g.add_node("handling",  wrap_node("handling",   node__handling))
+    g.add_node("closed",    wrap_node("closed",     node__closed))
 
     # Triage LLM + routing
     g.add_node("classify_user_intent", wrap_node(
