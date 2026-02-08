@@ -1,6 +1,6 @@
 from dotenv import load_dotenv
 from app.graph import build_graph
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage, AIMessage
 
 load_dotenv()
 graph = build_graph()
@@ -26,9 +26,12 @@ def run_chatbot():
         # We just invoke to trigger the next turn.
         output = graph.invoke(input_data, config=config)
 
-        # Print the last message from the assistant
-        if output.get("messages"):
-            print(f"Assistant: {output['messages'][-1].content}")
+        # Print the last message from the assistant (only if it's actually an AIMessage)
+        msgs = output.get("messages") or []
+        last_ai = next((m for m in reversed(
+            msgs) if isinstance(m, AIMessage)), None)
+        if last_ai:
+            print(f"Assistant: {last_ai.content}")
 
 
 if __name__ == "__main__":

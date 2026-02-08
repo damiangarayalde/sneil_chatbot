@@ -5,6 +5,7 @@ import sys
 from typing import Any, Callable, Dict, List, Optional
 
 from app.types import ChatState
+from langchain_core.messages import BaseMessage
 
 # ---- Logging config ----
 _MAX_STR = 100   # max chars shown for any string
@@ -124,6 +125,38 @@ def _pick_tail_fields(merged: Dict[str, Any]) -> List[str]:
     return preferred
 
 
+def _delta_normalize_messages(input_state: ChatState, result: Dict[str, Any]) -> Dict[str, Any]:
+    """If a runnable/subgraph returns a FULL messages list, convert to delta to avoid duplication."""
+    if "messages" not in result:
+        return result
+
+    in_msgs = input_state.get("messages") or []
+    out_msgs = result.get("messages") or []
+
+    if not isinstance(in_msgs, list) or not isinstance(out_msgs, list):
+        return result
+    if not out_msgs:
+        return result
+    if not all(isinstance(m, BaseMessage) for m in out_msgs):
+        return result
+
+    # Heuristic: if the output starts with the input history, treat it as full-state return
+    if len(out_msgs) >= len(in_msgs):
+        try:
+            prefix_matches = True
+            for i in range(len(in_msgs)):
+                if out_msgs[i] is not in_msgs[i] and repr(out_msgs[i]) != repr(in_msgs[i]):
+                    prefix_matches = False
+                    break
+            if prefix_matches:
+                result = dict(result)
+                result["messages"] = out_msgs[len(in_msgs):]
+        except Exception:
+            return result
+
+    return result
+
+
 def wrap_node(name: str, fn: Callable[[ChatState], ChatState]) -> Callable[[ChatState], ChatState]:
     """Wrap a node (or compiled subgraph) and print a one-line flow log per execution."""
 
@@ -138,6 +171,10 @@ def wrap_node(name: str, fn: Callable[[ChatState], ChatState]) -> Callable[[Chat
             result = fn.invoke(state)  # type: ignore[attr-defined]
         else:
             result = fn(state)
+
+        # ✅ If this is a runnable/subgraph that returned full state, keep only delta messages
+        if isinstance(result, dict):
+            result = _delta_normalize_messages(state, result)
 
         # Determine out_phase/out_next (assume unchanged if not provided)
         out_phase = in_phase

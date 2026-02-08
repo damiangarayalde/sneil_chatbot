@@ -71,18 +71,23 @@ def make_route_subgraph(route_id: str) -> StateGraph:
         # History management
         # history = state.get("messages", [])[:-1]
         last_msg = state["messages"][-1].content
+
         # Single LLM call
+        # NOTE: If your prompt uses MessagesPlaceholder for {history},
+        # you should pass history as a LIST of BaseMessage, not a string.
+        # If it does NOT, keep only user_text.
         res = llm.invoke(subgraph_prompt.format_messages(
             user_text=last_msg
             # history=history
         ))
 
-        # if res.is_topic_switch:
-        #     # Clear lock and signal triage
-        #     return {
-        #         "locked_route": None,
-        #         "next": "triage"
-        #     }
+        # If the user switched product/topic, clear lock so the hub can re-route.
+        if res.is_topic_switch:
+            # Clear lock and signal triage
+            return {
+                "locked_route": None,
+                "triage_question": None,
+            }
 
         return {
             "messages": [AIMessage(content=res.answer)]  # ,
