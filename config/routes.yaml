@@ -5,7 +5,7 @@ CLASSIFIER:
   whatsapp:
     tech: "https://wa.link/knk1e6"
     sales: "https://wa.link/blzjfv"
-  prompt_file: "app/prompts/classifier.md"
+  prompt_file: "app/core/prompts/classifier.md"
 
 TPMS:
   max_chars: 500
@@ -14,7 +14,7 @@ TPMS:
   whatsapp:
     tech: "https://wa.link/knk1e6"
     sales: "https://wa.link/blzjfv"
-  prompt_file: "app/prompts/routes/tpms.md"
+  prompt_file: "app/core/prompts/routes/tpms.md"
 
 AA:
   max_chars: 600
@@ -22,11 +22,11 @@ AA:
   whatsapp:
     tech: "https://wa.link/hsy20c"
     sales: "https://wa.link/58yqgi"
-  prompt_file: "app/prompts/routes/aa.md"
+  prompt_file: "app/core/prompts/routes/aa.md"
 
 CLIMATIZADOR:
   max_chars: 600
   preferred_chars: [50, 400]
   special:
     if_mentions_aa_return_only: "AA"   
-  prompt_file: "app/prompts/routes/climatizadores.md"
+  prompt_file: "app/core/prompts/routes/climatizadores.md"
