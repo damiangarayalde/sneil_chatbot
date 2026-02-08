@@ -1,10 +1,23 @@
+from typing import Literal
+from pydantic import BaseModel, Field
 from langgraph.graph import StateGraph, START, END
+from langchain_core.messages import AIMessage
 from app.types import ChatState
 # Use route-based helper that builds the prompt from route_id
 from app.prompts.prompt_utils import make_chat_prompt_for_route
 from app.utils import init_llm
 # from app.nodes.rag import get_retriever
 # from app.tools.catalog_tool import catalog_lookup
+
+# Structured output schema
+
+
+class HandlerOutput(BaseModel):
+    """Decide if the topic is still relevant or if a switch is needed."""
+    is_topic_switch: bool = Field(
+        description="True if the user changed the topic to a different product.")
+    answer: str = Field(
+        description="The response to the user. Empty if is_topic_switch is True.")
 
 
 def make_route_subgraph(route_id: str) -> StateGraph:
@@ -28,13 +41,10 @@ def make_route_subgraph(route_id: str) -> StateGraph:
 
     # Build prompt and get route config by passing only the route id
     subgraph_prompt, route_cfg = make_chat_prompt_for_route(
-        route_id,
-        "User: {user_text}\n\nRetrieved context:\n\n\nIf you need price/link, ask to call catalog_lookup.",
-
-        # "User: {user_text}\n\nRetrieved context:\n{context}\n\nIf you need price/link, ask to call catalog_lookup.",
-    )
-
-    llm = init_llm(model="gpt-4o-mini", temperature=0.2)
+        route_id)
+    # Initialize LLM with structured output
+    llm = init_llm(model="gpt-4o-mini"  # , temperature=0.2)
+                   ).with_structured_output(HandlerOutput)
 
     handoff_after = route_cfg.get("handoff_after_attempts")
 
@@ -53,19 +63,33 @@ def make_route_subgraph(route_id: str) -> StateGraph:
     #     return state
 
     def generate(state: ChatState) -> ChatState:
+        # dict:
         """Generate an answer using the LLM and retrieved context.
 
         If the user appears to ask for price/SKU/link, call the catalog tool
         and append its output to the context before invoking the LLM.
         """
-        user_text = state["messages"][-1].content
-        print(f"Invoking node for handling route: {route_id}...")
+        # History management
+        # history = state.get("messages", [])[:-1]
+        user_text = state["messages"][-1].content  # last_msg
 
-        reply = llm.invoke(
-            subgraph_prompt.format_messages(user_text=user_text))
+        # Single LLM call
+        res = llm.invoke(subgraph_prompt.format_messages(
+            user_text=user_text  # ,
+            # history=history
+        ))
 
-        # Return the assistant reply wrapped in the state's messages field
-        return {"messages": [reply]}
+        # if res.is_topic_switch:
+        #     # Clear lock and signal triage
+        #     return {
+        #         "locked_route": None,
+        #         "next": "triage"
+        #     }
+
+        return {
+            "messages": [AIMessage(content=res.content)]  # ,
+            # "next": "closed"  # To be deleted if using more nodes like enforce_limits
+        }
 
         # context = "\n\n".join(d["page_content"]
         #                       for d in (state.get("retrieved") or []))
@@ -115,8 +139,8 @@ def make_route_subgraph(route_id: str) -> StateGraph:
     g.add_node("generate", generate)
     # g.add_node("enforce_limits", enforce_limits)
     # g.add_node("maybe_handoff", maybe_handoff)
-    g.add_edge(START, "generate")  # delete later
-    g.add_edge("generate", END)  # delete later
+    g.add_edge(START, "generate")
+    g.add_edge("generate", END)
 
     # g.add_edge(START, "retrieve")
     # g.add_edge("retrieve", "generate")
