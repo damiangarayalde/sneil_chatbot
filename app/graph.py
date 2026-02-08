@@ -2,10 +2,19 @@ from langgraph.graph import StateGraph, START, END
 from app.types import ChatState
 from app.nodes.route_subgraph import make_route_subgraph
 from app.nodes.user_intent_classifier import node__classify_user_intent
-from app.nodes.phase_nodes import node__closed
+from app.nodes.phase_nodes import node__finalize_turn  # node__closed (legacy)
 from app.graph_utils import wrap_node
-from app.utils import get_routes, is_valid_route
+from app.utils import get_routes
 from app.persistence import get_sqlite_checkpointer
+
+from app.graph_routes import (
+    route_node,
+    handler_edge_map,
+    route_from_start,
+    route_after_hub,
+    route_after_handler,
+    end_turn_node,
+)
 
 # Routes are config-driven (config/routes.(yaml|yml))
 ROUTES = get_routes()
@@ -20,65 +29,44 @@ memory = get_sqlite_checkpointer()
 def build_graph() -> StateGraph:
     g = StateGraph(ChatState)
 
-    # Hub
-    g.add_node("classify_user_intent", wrap_node(
-        "classify_user_intent", node__classify_user_intent))
+    # --------------------------------------------------------------------------------------------
+    # Nodes
+
+    # Hub (intent classification + triage question)
+    g.add_node("hub", wrap_node("hub", node__classify_user_intent))
 
     # Spokes - Route-specific handler subgraphs
     for route in ROUTES:
-        g.add_node(f"handle__{route}", wrap_node(
-            f"handle__{route}", subgraphs[route]))
+        g.add_node(route_node(route), wrap_node(
+            route_node(route), subgraphs[route]))
 
-    g.add_node("closed",    wrap_node("closed",     node__closed))
+    # End-of-turn finalizer (state hygiene + END)
+    g.add_node(end_turn_node(), wrap_node(
+        end_turn_node(), node__finalize_turn))
+
+    # Legacy (kept for reference; prefer finalize_turn)
+    # from app.nodes.phase_nodes import node__closed
+    # g.add_node("closed", wrap_node("closed", node__closed))
 
     # --------------------------------------------------------------------------------------------
+    # Edges
 
-    # Small helpers to keep graph definitions declarative
-    def _route_node(route: str) -> str:
-        return f"handle__{route}"
+    start_map = {"hub": "hub"}
+    start_map.update(handler_edge_map(ROUTES))
+    g.add_conditional_edges(START, route_from_start, start_map)
 
-    def _is_locked(state: ChatState) -> bool:
-        return is_valid_route(state.get("locked_route"))
-
-    def _start_router(state: ChatState) -> str:
-        locked = state.get("locked_route")
-        if _is_locked(state):
-            return _route_node(locked)
-        return "classify_user_intent"
-
-    start_map = {"classify_user_intent": "classify_user_intent"}
-    start_map.update({f"handle__{r}": f"handle__{r}" for r in ROUTES})
-    g.add_conditional_edges(START, _start_router, start_map)
-
-    def _after_classifier(state: ChatState) -> str:
-        # If classifier asked a question, end this invocation
-        if state.get("triage_question"):
-            return "closed"
-        locked = state.get("locked_route")
-        if _is_locked(state):
-            return _route_node(locked)
-        return "closed"
-
-    after_classifier_map = {"closed": "closed"}
-    after_classifier_map.update(
-        {f"handle__{r}": f"handle__{r}" for r in ROUTES})
-    g.add_conditional_edges("classify_user_intent",
-                            _after_classifier, after_classifier_map)
-
-    # If the handler clears locked_route (topic switch), go back to hub.
-    def _after_handler(state: ChatState) -> str:
-        if state.get("locked_route") is None:
-            return "classify_user_intent"
-        return "closed"
+    after_hub_map = {end_turn_node(): end_turn_node()}
+    after_hub_map.update(handler_edge_map(ROUTES))
+    g.add_conditional_edges("hub", route_after_hub, after_hub_map)
 
     for r in ROUTES:
         g.add_conditional_edges(
-            f"handle__{r}",
-            _after_handler,
-            {"classify_user_intent": "classify_user_intent", "closed": "closed"},
+            route_node(r),
+            route_after_handler,
+            {"hub": "hub", end_turn_node(): end_turn_node()},
         )
 
-    g.add_edge("closed", END)
+    g.add_edge(end_turn_node(), END)
 
     return g.compile(checkpointer=memory)
 
