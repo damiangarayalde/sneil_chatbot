@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from typing import Dict
-from app.core.types import ChatState
+from app.core.graph.types import ChatState
 from app.core.utils import is_valid_route
 
 
