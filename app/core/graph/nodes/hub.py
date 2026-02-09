@@ -179,10 +179,6 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
     result = classifier_llm.invoke(
         classifier_prompt.format_messages(**fmt_kwargs))
 
-    print(
-        f"---> Inside: node__classify_user_intent \nDetermined estimated route: {result.estimated_route}\nconfidence: {result.confidence})\n"
-    )
-
     # If confidence is high enough OR attempts exceeded, lock route and proceed
     if float(result.confidence) >= ROUTE_LOCK_THRESHOLD or attempts >= MAX_ROUTING_ATTEMPTS:
         return {
