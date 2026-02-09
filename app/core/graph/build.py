@@ -3,7 +3,7 @@ from app.core.graph.state import ChatState
 from app.core.graph.nodes.route_subgraph import make_route_subgraph
 from app.core.graph.nodes.hub import node__classify_user_intent
 from app.core.graph.nodes.lifecycle import node__finalize_turn
-from app.core.graph_utils import wrap_node
+from app.core.graph.flow_logging import wrap_node
 from app.core.utils import get_routes
 from app.core.persistence import get_sqlite_checkpointer
 
