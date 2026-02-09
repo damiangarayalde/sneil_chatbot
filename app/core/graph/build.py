@@ -44,10 +44,6 @@ def build_graph() -> StateGraph:
     g.add_node(end_turn_node(), wrap_node(
         end_turn_node(), node__finalize_turn))
 
-    # Legacy (kept for reference; prefer finalize_turn)
-    # from app.nodes.phase_nodes import node__closed
-    # g.add_node("closed", wrap_node("closed", node__closed))
-
     # --------------------------------------------------------------------------------------------
     # Edges
 
