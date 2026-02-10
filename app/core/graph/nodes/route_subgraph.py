@@ -3,13 +3,12 @@ from pydantic import BaseModel, Field
 from langgraph.graph import StateGraph, START, END
 from langchain_core.messages import AIMessage
 from app.core.graph.state import ChatState
-# Use route-based helper that builds the prompt from route_id
 from app.core.prompts.builders import make_chat_prompt_for_route
 from app.core.utils import init_llm
-# from app.nodes.rag import get_retriever
+from app.core.graph.nodes.rag import get_retriever
 # from app.tools.catalog_tool import catalog_lookup
 
-# Structured output schema
+# Structured output schema for the handler
 
 
 class HandlerOutput(BaseModel):
@@ -23,11 +22,9 @@ class HandlerOutput(BaseModel):
 def make_route_subgraph(route_id: str) -> StateGraph:
     """Construct a StateGraph subgraph for a given route.
 
-    This builds and compiles a small retrieval-augmented generation (RAG)
-    pipeline using a LangGraph `StateGraph`. The graph nodes perform the
-    following steps:
-    - `retrieve`: call the vector store retriever to obtain context documents
-    - `generate`: call the LLM to produce an answer using the prompt + context
+    Nodes:
+    - retrieve: Fetches context documents from vector store based on user input.
+    - generate: Uses context and history to produce a structured answer.
     - `enforce_limits`: shorten the answer if it exceeds `max_chars`
     - `maybe_handoff`: optionally append a WhatsApp handoff link after N attempts
 
@@ -38,28 +35,24 @@ def make_route_subgraph(route_id: str) -> StateGraph:
     Returns:
     - A compiled `StateGraph` ready to be invoked by the application.
     """
-
-    # Build prompt and get route config by passing only the route id
-    subgraph_prompt, route_cfg = make_chat_prompt_for_route(
-        route_id)
     # Initialize LLM with structured output
     llm = init_llm(model="gpt-4o-mini").with_structured_output(HandlerOutput)
 
-    handoff_after = route_cfg.get("handoff_after_attempts")
+    def retrieve(state: ChatState) -> ChatState:
+        """
+        Retrieves context documents for the specific product/route based on user query.
+        """
+        # 1. Initialize retriever for this specific route (e.g., 'AA', 'TPMS')
+        retriever = get_retriever(route_id, k=5)
 
-    # def retrieve(state: ChatState) -> ChatState:
-    #     """Retrieve relevant documents for the latest user message.
+        # 2. Get the latest user message
+        last_msg = state["messages"][-1].content if state.get(
+            "messages") else ""
 
-    #     Uses the route-specific retriever to fetch documents and stores a
-    #     lightweight representation in `state['retrieved']`.
-    #     """
-    #     user_text = state["messages"][-1].content
-    #     retriever = get_retriever(route_id, k=5)
-    #     docs = retriever.invoke(user_text)
-    #     state["retrieved"] = [
-    #         {"page_content": d.page_content, "metadata": d.metadata} for d in docs
-    #     ]
-    #     return state
+        # 3. Fetch relevant chunks
+        docs = retriever.invoke(last_msg)
+
+        return {"retrieved": docs}
 
     def generate(state: ChatState) -> ChatState:
         # dict:
@@ -72,16 +65,32 @@ def make_route_subgraph(route_id: str) -> StateGraph:
         # history = state.get("messages", [])[:-1]
         last_msg = state["messages"][-1].content
 
-        # Single LLM call
-        # NOTE: If your prompt uses MessagesPlaceholder for {history},
-        # you should pass history as a LIST of BaseMessage, not a string.
-        # If it does NOT, keep only user_text.
+        # Build prompt and get route config by passing only the route id
+        subgraph_prompt, route_cfg = make_chat_prompt_for_route(route_id)
+
+        handoff_after = route_cfg.get("handoff_after_attempts")
+
+        # Prepare context string from retrieved docs
+        # context_text = ""
+        # if state.get("retrieved"):
+        #     context_text = "\n\n".join(
+        #         [d.page_content for d in state["retrieved"]])
+
+        # Format messages for the prompt
+        # Note: 'messages' contains the history, 'context' contains the RAG data
+
+        # messages = subgraph_prompt.format_messages(
+        #     messages=state["messages"],
+        #     context=context_text
+        # )
+
         res = llm.invoke(subgraph_prompt.format_messages(
             user_text=last_msg
             # history=history
         ))
 
-        # If the user switched product/topic, clear lock so the hub can re-route.
+        # old: If the user switched product/topic, clear lock so the hub can re-route.
+        # new: If it's a topic switch, we don't return an answer here (handled by router)
         if res.is_topic_switch:
             # Clear lock and signal triage
             return {
@@ -91,7 +100,6 @@ def make_route_subgraph(route_id: str) -> StateGraph:
 
         return {
             "messages": [AIMessage(content=res.answer)]  # ,
-            # "next": "closed"  # To be deleted if using more nodes like enforce_limits
         }
 
         # context = "\n\n".join(d["page_content"]
@@ -137,16 +145,18 @@ def make_route_subgraph(route_id: str) -> StateGraph:
     #         state["answer"] += f"\n\nSi querés, te derivamos por WhatsApp: {tech}"
     #     return state
 
+    # --- Graph Construction ---
     g = StateGraph(ChatState)
-    # g.add_node("retrieve", retrieve)
+
+    g.add_node("retrieve", retrieve)
     g.add_node("generate", generate)
     # g.add_node("enforce_limits", enforce_limits)
     # g.add_node("maybe_handoff", maybe_handoff)
-    g.add_edge(START, "generate")
-    g.add_edge("generate", END)
 
-    # g.add_edge(START, "retrieve")
-    # g.add_edge("retrieve", "generate")
+    # Flow: Start -> Retrieve Context -> Generate Answer -> End
+    g.add_edge(START, "retrieve")
+    g.add_edge("retrieve", "generate")
+    g.add_edge("generate", END)
     # g.add_edge("generate", "enforce_limits")
     # g.add_edge("enforce_limits", "maybe_handoff")
     # g.add_edge("maybe_handoff", END)
