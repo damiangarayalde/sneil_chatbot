@@ -25,8 +25,8 @@ def make_route_subgraph(route_id: str) -> StateGraph:
     Nodes:
     - retrieve: Fetches context documents from vector store based on user input.
     - generate: Uses context and history to produce a structured answer.
-    - `enforce_limits`: shorten the answer if it exceeds `max_chars`
-    - `maybe_handoff`: optionally append a WhatsApp handoff link after N attempts
+    - enforce_limits: shorten the answer if it exceeds `max_chars`
+    - maybe_handoff: optionally append a WhatsApp handoff link after N attempts
 
     Parameters:
     - route_id (str): Key used to lookup route configuration in
@@ -65,8 +65,6 @@ def make_route_subgraph(route_id: str) -> StateGraph:
         # Build prompt and get route config by passing only the route id
         subgraph_prompt, route_cfg = make_chat_prompt_for_route(route_id)
 
-        handoff_after = route_cfg.get("handoff_after_attempts")
-
         # Prepare context string from retrieved docs
         # context_text = ""
         # if state.get("retrieved"):
@@ -75,7 +73,6 @@ def make_route_subgraph(route_id: str) -> StateGraph:
 
         # Format messages for the prompt
         # Note: 'messages' contains the history, 'context' contains the RAG data
-
         # messages = subgraph_prompt.format_messages(
         #     messages=state["messages"],
         #     context=context_text
@@ -111,35 +108,35 @@ def make_route_subgraph(route_id: str) -> StateGraph:
         # state["answer"] = msg.content
         # return state
 
-    # def enforce_limits(state: ChatState) -> ChatState:
-    #     """Ensure the generated answer respects the configured character limit.
+    def enforce_limits(state: ChatState) -> ChatState:
+        # """Ensure the generated answer respects the configured character limit.
 
-    #     If the answer is too long, compress it using a smaller model.
-    #     """
-    #     ans = state.get("answer") or ""
-    #     if len(ans) <= max_chars:
-    #         return state
+        # If the answer is too long, compress it using a smaller model.
+        # """
+        # ans = state.get("answer") or ""
+        # if len(ans) <= max_chars:
+        #     return state
 
-    #     compressor = ChatOpenAI(model="gpt-4o-mini", temperature=0)
-    #     compress_prompt = ChatPromptTemplate.from_messages([
-    #         ("system",
-    #          f"Shorten to <= {max_chars} characters, keep links intact, keep meaning."),
-    #         ("human", "{text}")
-    #     ])
-    #     state["answer"] = compressor.invoke(
-    #         compress_prompt.format_messages(text=ans)).content
-    #     return state
+        # compressor = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+        # compress_prompt = ChatPromptTemplate.from_messages([
+        #     ("system",
+        #      f"Shorten to <= {max_chars} characters, keep links intact, keep meaning."),
+        #     ("human", "{text}")
+        # ])
+        # state["answer"] = compressor.invoke(
+        #     compress_prompt.format_messages(text=ans)).content
+        return state
 
-    # def maybe_handoff(state: ChatState) -> ChatState:
-    #     """Optionally append a WhatsApp handoff after repeated attempts."""
-    #     if not handoff_after:
-    #         return state
-    #     attempts = state["attempts"].get(route_id, 0)
-    #     state["attempts"][route_id] = attempts + 1
-    #     if state["attempts"][route_id] >= handoff_after:
-    #         tech = cfg[route_id]["whatsapp"]["tech"]
-    #         state["answer"] += f"\n\nSi querés, te derivamos por WhatsApp: {tech}"
-    #     return state
+    def maybe_handoff(state: ChatState) -> ChatState:
+        # """Optionally append a WhatsApp handoff after repeated attempts."""
+        # if not handoff_after:
+        #     return state
+        # attempts = state["attempts"].get(route_id, 0)
+        # state["attempts"][route_id] = attempts + 1
+        # if state["attempts"][route_id] >= handoff_after:
+        #     tech = cfg[route_id]["whatsapp"]["tech"]
+        #     state["answer"] += f"\n\nSi querés, te derivamos por WhatsApp: {tech}"
+        return state
 
     # --- Graph Construction ---
     g = StateGraph(ChatState)
