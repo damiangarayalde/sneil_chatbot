@@ -7,8 +7,8 @@ EMBED_MODEL = "text-embedding-3-small"
 
 
 def _repo_root() -> Path:
-    # rag.py is expected at: <root>/app/nodes/rag.py
-    return Path(__file__).resolve().parents[2]
+    # rag.py is expected at: <root>/app/core/graph/nodes/rag.py
+    return Path(__file__).resolve().parents[4]
 
 
 def get_retriever(product_id: str, k: int = 5):

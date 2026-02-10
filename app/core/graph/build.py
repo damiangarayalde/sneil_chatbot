@@ -67,3 +67,4 @@ def build_graph() -> StateGraph:
     return g.compile(checkpointer=memory)
 
     # ADD SESSION TIMEOUTs
+    # when changing topic  the assistant dont ask anything
