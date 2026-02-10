@@ -41,72 +41,63 @@ def make_route_subgraph(route_id: str) -> StateGraph:
     def retrieve(state: ChatState) -> ChatState:
         """
         Retrieves context documents for the specific product/route based on user query.
+        Then and stores them as dictionaries in the state.    
         """
-        retriever = get_retriever(route_id, k=5)
-
         last_msg = state["messages"][-1].content if state.get(
             "messages") else ""
 
+        # 2. Initialize the retriever for this specific route (e.g., 'TPMS', 'AA')
+        retriever = get_retriever(route_id, k=5)
         retrieved_docs = retriever.invoke(last_msg)
 
-        return {"retrieved": retrieved_docs}
+        return {"retrieved": [d.dict() for d in retrieved_docs]}
 
     def generate(state: ChatState) -> ChatState:
-        # dict:
         """Generate an answer using the LLM and retrieved context.
 
         If the user appears to ask for price/SKU/link, call the catalog tool
         and append its output to the context before invoking the LLM.
         """
-        # History management
+        # History management # remove later
         # history = state.get("messages", [])[:-1]
-        last_msg = state["messages"][-1].content
-
-        # Build prompt and get route config by passing only the route id
-        subgraph_prompt, route_cfg = make_chat_prompt_for_route(route_id)
-
-        # Prepare context string from retrieved docs
-        # context_text = ""
-        # if state.get("retrieved"):
-        #     context_text = "\n\n".join(
-        #         [d.page_content for d in state["retrieved"]])
-
-        # Format messages for the prompt
-        # Note: 'messages' contains the history, 'context' contains the RAG data
-        # messages = subgraph_prompt.format_messages(
-        #     messages=state["messages"],
-        #     context=context_text
-        # )
-
-        res = llm.invoke(subgraph_prompt.format_messages(
-            user_text=last_msg
-            # history=history
-        ))
-
-        # If the user switched product/topic, clear lock so the hub can re-route.
-        if res.is_topic_switch:
-            # Clear lock and signal triage
-            return {
-                "locked_route": None,
-                "triage_question": None,
-            }
-
-        return {
-            "messages": [AIMessage(content=res.answer)]  # ,
-        }
-
-        # context = "\n\n".join(d["page_content"]
-        #                       for d in (state.get("retrieved") or []))
+        last_msg = state["messages"][-1].content  # remove later
 
         # if any(x in user_text.lower() for x in ["precio", "vale", "cuesta", "link", "comprar", "sku"]):
         #     tool_out = catalog_lookup(
         #         user_text, product_family=route_id, k=3)
         #     context += "\n\nCATALOG_LOOKUP:\n" + str(tool_out)
 
-        # msg = llm.invoke(prompt.format_messages(
-        #     user_text=user_text, context=context))
-        # state["answer"] = msg.content
-        # return state
+        # 1. Prepare context string from retrieved docs
+        docs = state.get("retrieved") or []
+        context_text = "\n\n".join(
+            d.get("page_content", "") for d in docs
+        )
+
+        # 2. Initialize LLM and Prompt
+        llm = init_llm(model="gpt-4o-mini", temperature=0)
+        prompt_template, route_cfg = make_chat_prompt_for_route(route_id)
+
+        # 3. Format the prompt with context and history
+        chain = prompt_template | llm.with_structured_output(HandlerOutput)
+
+        response = chain.invoke({
+            "user_text": last_msg,  # or state["messages"][-1].content
+            "context": "",  # context_text",  # rag data
+            "messages": state["messages"]  # chat history
+        })
+
+        # If the user switched product/topic, clear lock so the hub can re-route.
+        if response.is_topic_switch:
+            # Clear lock and signal triage
+            return {
+                "locked_route": None,
+                "triage_question": None,
+            }
+
+        # 4. Return the new assistant message (and any other state updates)
+        return {
+            "messages": [AIMessage(content=response.answer)]
+        }
 
     def enforce_limits(state: ChatState) -> ChatState:
         # """Ensure the generated answer respects the configured character limit.
