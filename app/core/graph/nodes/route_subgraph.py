@@ -42,17 +42,14 @@ def make_route_subgraph(route_id: str) -> StateGraph:
         """
         Retrieves context documents for the specific product/route based on user query.
         """
-        # 1. Initialize retriever for this specific route (e.g., 'AA', 'TPMS')
         retriever = get_retriever(route_id, k=5)
 
-        # 2. Get the latest user message
         last_msg = state["messages"][-1].content if state.get(
             "messages") else ""
 
-        # 3. Fetch relevant chunks
-        docs = retriever.invoke(last_msg)
+        retrieved_docs = retriever.invoke(last_msg)
 
-        return {"retrieved": docs}
+        return {"retrieved": retrieved_docs}
 
     def generate(state: ChatState) -> ChatState:
         # dict:
@@ -89,8 +86,7 @@ def make_route_subgraph(route_id: str) -> StateGraph:
             # history=history
         ))
 
-        # old: If the user switched product/topic, clear lock so the hub can re-route.
-        # new: If it's a topic switch, we don't return an answer here (handled by router)
+        # If the user switched product/topic, clear lock so the hub can re-route.
         if res.is_topic_switch:
             # Clear lock and signal triage
             return {
