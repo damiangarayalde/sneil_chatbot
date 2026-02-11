@@ -33,12 +33,12 @@ def combine_shared_and_route_prompts(route_id: str, route_prompt: str, max_chars
     return (
         shared_texts["BASE"]
         + "\n\n"
-        # + shared_texts["WHATSAPP"]
-        # + "\n\n"
+        + shared_texts["WHATSAPP"]
+        + "\n\n"
         # + shared_texts["SHIP_SPAIN"]
         # + "\n\n"
         # + shared_texts["ESCALATION"]
-        # + "\n\n"
+        + "\n\n"
         + f"## ROUTE: {route_id}\n"
         + route_prompt
         + f"\n\nHard limit: {max_chars} characters including spaces."
@@ -75,15 +75,6 @@ def get_default_human_template(route_id: str) -> str:
     Centralizes input formatting so callers don't duplicate templates.
     """
     if route_id == "CLASSIFIER":
-        # ✅ Legacy (string) classifier template kept for reference.
-        # return (
-        #     "Historial reciente (puede estar vacío):\n{history}\n\n"
-        #     "Intentos de ruteo hasta ahora: {routing_attempts}\n"
-        #     "Resumen de triage actual (puede estar vacío): {triage_summary}\n"
-        #     "Sender (si existe): {from}\n\n"
-        #     "Último mensaje del usuario:\n{user_text}"
-        # )
-        # ✅ New: history is passed as list[BaseMessage] via MessagesPlaceholder("history").
         return (
             "Intentos de ruteo hasta ahora: {routing_attempts}\n"
             "Resumen de triage actual (puede estar vacío): {triage_summary}\n"
