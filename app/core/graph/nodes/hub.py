@@ -41,38 +41,6 @@ class UserIntentClassifier_output_format(BaseModel):
             raise ValueError(f"Invalid estimated_route: {v}")
         return v
 
-# delete below -------#
-
-
-def _role_label(msg: BaseMessage) -> str:
-    # Keep it simple; we only need enough to help routing.
-    if isinstance(msg, HumanMessage):
-        return "USER"
-    return "ASSISTANT"
-
-
-def _format_history(messages: list[BaseMessage]) -> str:
-    """
-    Build a compact, role-tagged history string.
-
-    We include only the last N messages (excluding the latest user message,
-    which is provided separately as {user_text}), and cap total chars to keep costs predictable.
-    """
-    if not messages:
-        return ""
-
-    tail = messages[-CLASSIFIER_HISTORY_MAX_MESSAGES:]
-    lines = [f"{_role_label(m)}: {m.content}" for m in tail if getattr(
-        m, "content", None)]
-    history = "\n".join(lines)
-
-    if len(history) > CLASSIFIER_HISTORY_MAX_CHARS:
-        history = history[-CLASSIFIER_HISTORY_MAX_CHARS:]
-        history = "…(recortado)\n" + history
-
-    return history
-# ------- delete above -------#
-
 
 # Treat these as "low information" replies that should NOT lock a route
 LOW_INFO_MSGS = {
@@ -136,10 +104,6 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
 
     # Build history as list[BaseMessage] (best practice). Exclude current user message.
     prior_messages = state.get("messages", [])[:-1]
-    # prior_messages: list[BaseMessage] = state.get("messages", [])[:-1]
-
-    # Legacy string-history formatter kept above for reference:
-    # history = _format_history(prior_messages)
 
     filtered = []
     for m in prior_messages:
@@ -169,7 +133,6 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
 
     fmt_kwargs = {
         "user_text": last_message,
-        "text": last_message,  # kept for compatibility in case prompts reference it
         "history": history,    # MUST be list[BaseMessage]
         "from": from_val,
         "routing_attempts": attempts,
