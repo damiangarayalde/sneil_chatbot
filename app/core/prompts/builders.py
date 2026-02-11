@@ -22,13 +22,13 @@ def get_shared_texts() -> dict:
     }
 
 
-def make_system_text(route_id: str, route_prompt: str, max_chars: int, shared_texts: dict | None = None) -> str:
+def combine_shared_and_route_prompts(route_id: str, route_prompt: str, max_chars: int, shared_texts: dict | None = None) -> str:
     """Compose the system message from route config and shared texts."""
     if shared_texts is None:
         shared_texts = get_shared_texts()
 
     # Escape braces so prompt files can safely contain JSON examples.
-    safe_route_prompt = route_prompt.replace("{", "{{").replace("}", "}}")
+    route_prompt = route_prompt.replace("{", "{{").replace("}", "}}")
 
     return (
         shared_texts["BASE"]
@@ -40,14 +40,15 @@ def make_system_text(route_id: str, route_prompt: str, max_chars: int, shared_te
         # + shared_texts["ESCALATION"]
         # + "\n\n"
         + f"## ROUTE: {route_id}\n"
-        + safe_route_prompt
+        + route_prompt
         + f"\n\nHard limit: {max_chars} characters including spaces."
     )
 
 
 def make_chat_prompt(route_id: str, route_prompt: str, max_chars: int, human_template: str) -> ChatPromptTemplate:
     """Create a ChatPromptTemplate from system and human templates."""
-    system = make_system_text(route_id, route_prompt, max_chars)
+    system = combine_shared_and_route_prompts(
+        route_id, route_prompt, max_chars)
 
     return ChatPromptTemplate.from_messages([
         ("system", system),
