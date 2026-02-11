@@ -1,10 +1,9 @@
 from typing import Literal, Optional
 from pydantic import BaseModel, Field, field_validator
-from app.core.graph.state import ChatState
+from app.core.graph.state import ChatState, get_history_and_last_msg
 from app.core.prompts.builders import make_chat_prompt_for_route
-from app.core.utils import init_llm, get_routes
+from app.core.utils import init_llm, get_routes, is_valid_route
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
-from app.core.utils import is_valid_route
 
 ALLOWED_ROUTES = set(get_routes())
 
@@ -85,7 +84,8 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
         return {}
 
     # Use the last user message to classify the route and confidence
-    last_message = state["messages"][-1].content
+    prior_messages, last_message = get_history_and_last_msg(
+        state.get("messages") or [])
 
     # --- HARD GUARD: low-info user replies should NOT lock a route
     if _is_low_info(last_message):
@@ -101,9 +101,6 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
     # If the msg pass the basic low-info filter, proceed with normal classification flow. This allows for some borderline cases to be classified based on their content, while still preventing obviously unhelpful messages from locking routes.
     classifier_llm = llm.with_structured_output(
         UserIntentClassifier_output_format)
-
-    # Build history as list[BaseMessage] (best practice). Exclude current user message.
-    prior_messages = state.get("messages", [])[:-1]
 
     filtered = []
     for m in prior_messages:

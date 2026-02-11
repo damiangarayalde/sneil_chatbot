@@ -2,7 +2,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 from langgraph.graph import StateGraph, START, END
 from langchain_core.messages import AIMessage
-from app.core.graph.state import ChatState
+from app.core.graph.state import ChatState, get_history_and_last_msg
 from app.core.prompts.builders import make_chat_prompt_for_route
 from app.core.utils import init_llm
 from app.core.tools.rag import get_retriever
@@ -35,6 +35,10 @@ def make_route_subgraph(route_id: str) -> StateGraph:
     Returns:
     - A compiled `StateGraph` ready to be invoked by the application.
     """
+
+    # Build prompt and get route config by passing only the route id
+    subgraph_prompt, route_cfg = make_chat_prompt_for_route(
+        route_id)
     # Initialize LLM with structured output
     llm = init_llm(model="gpt-4o-mini").with_structured_output(HandlerOutput)
 
@@ -58,16 +62,15 @@ def make_route_subgraph(route_id: str) -> StateGraph:
         If the user appears to ask for price/SKU/link, call the catalog tool
         and append its output to the context before invoking the LLM.
         """
-        # History management # remove later
-        history = (state.get("messages") or [])[:-1]
-        last_msg = state["messages"][-1].content  # remove later
+        history, last_msg = get_history_and_last_msg(
+            state.get("messages") or [])
 
         # if any(x in user_text.lower() for x in ["precio", "vale", "cuesta", "link", "comprar", "sku"]):
         #     tool_out = catalog_lookup(
         #         user_text, product_family=route_id, k=3)
         #     context += "\n\nCATALOG_LOOKUP:\n" + str(tool_out)
 
-        # Prepare context string from retrieved docs
+       # Prepare context string from retrieved docs
         docs = state.get("retrieved") or []
         context_text = "\n\n".join(d.get("page_content", "") for d in docs)
 

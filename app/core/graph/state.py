@@ -28,3 +28,19 @@ class ChatState(TypedDict, total=False):
 
     # RAG output (its a list of docs)
     retrieved: Optional[List[Dict[str, Any]]]
+
+
+def get_history_and_last_msg(messages: list[BaseMessage]) -> tuple[list[BaseMessage], str]:
+    """Split the full messages list into (history, last_user_text).
+
+    - `history`: all messages except the last
+    - `last_msg`: content of the last message (empty string if missing)
+
+    This keeps a single, shared convention across hub + handlers.
+    """
+    if not messages:
+        return [], ""
+    last = messages[-1]
+    last_msg = getattr(last, "content", "") or ""
+    history = list(messages[:-1])
+    return history, last_msg
