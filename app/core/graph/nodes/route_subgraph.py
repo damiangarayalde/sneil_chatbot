@@ -59,7 +59,7 @@ def make_route_subgraph(route_id: str) -> StateGraph:
         and append its output to the context before invoking the LLM.
         """
         # History management # remove later
-        # history = state.get("messages", [])[:-1]
+        history = (state.get("messages") or [])[:-1]
         last_msg = state["messages"][-1].content  # remove later
 
         # if any(x in user_text.lower() for x in ["precio", "vale", "cuesta", "link", "comprar", "sku"]):
@@ -67,23 +67,22 @@ def make_route_subgraph(route_id: str) -> StateGraph:
         #         user_text, product_family=route_id, k=3)
         #     context += "\n\nCATALOG_LOOKUP:\n" + str(tool_out)
 
-        # 1. Prepare context string from retrieved docs
+        # Prepare context string from retrieved docs
         docs = state.get("retrieved") or []
-        context_text = "\n\n".join(
-            d.get("page_content", "") for d in docs
-        )
+        context_text = "\n\n".join(d.get("page_content", "") for d in docs)
 
-        # 2. Initialize LLM and Prompt
+        # Initialize LLM and Prompt
         llm = init_llm(model="gpt-4o-mini", temperature=0)
         prompt_template, route_cfg = make_chat_prompt_for_route(route_id)
 
-        # 3. Format the prompt with context and history
+        # Format the prompt with context and history
         chain = prompt_template | llm.with_structured_output(HandlerOutput)
 
         response = chain.invoke({
-            "user_text": last_msg,  # or state["messages"][-1].content
-            "context": "",  # context_text",  # rag data
-            "messages": state["messages"]  # chat history
+            "history": history,         # chat history
+            "user_text": last_msg,      # current user msg
+            "context": context_text,    # optional; rag_data
+            # any route extras go here
         })
 
         # If the user switched product/topic, clear lock so the hub can re-route.
