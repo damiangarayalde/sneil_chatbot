@@ -5,7 +5,7 @@ from langchain_core.messages import AIMessage
 from app.core.graph.state import ChatState
 from app.core.prompts.builders import make_chat_prompt_for_route
 from app.core.utils import init_llm
-from app.core.graph.nodes.rag import get_retriever
+from app.core.tools.rag import get_retriever
 # from app.tools.catalog_tool import catalog_lookup
 
 # Structured output schema for the handler
