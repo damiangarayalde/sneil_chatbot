@@ -136,8 +136,8 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
         "triage_summary": triage_summary,
     }
 
-    result = classifier_llm.invoke(
-        classifier_prompt.format_messages(**fmt_kwargs))
+    chain = classifier_prompt | classifier_llm
+    result = chain.invoke(fmt_kwargs)
 
     # If confidence is high enough OR attempts exceeded, lock route and proceed
     if float(result.confidence) >= ROUTE_LOCK_THRESHOLD or attempts >= MAX_ROUTING_ATTEMPTS:
