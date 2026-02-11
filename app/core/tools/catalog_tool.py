@@ -4,7 +4,15 @@ from pathlib import Path
 from typing import Optional, List, Dict
 
 # Define the path to the catalog JSON file
-CATALOG_PATH = Path("data/catalog.json")
+# CATALOG_PATH = Path("data/catalog.json")
+
+
+def _repo_root() -> Path:
+    # catalog_tool.py is expected at: <root>/app/core/tools/catalog_tool.py
+    return Path(__file__).resolve().parents[3]
+
+
+CATALOG_PATH = _repo_root() / "data" / "catalog.json"
 
 
 def _norm(s: str) -> str:
@@ -35,7 +43,7 @@ def catalog_lookup(query: str, product_family: Optional[str] = None, k: int = 3)
     q = _norm(query)  # Normalize the query string
 
     candidates = []  # List to hold matching products
-    for p in data["products"]:
+    for p in data["items"]:
         # Skip products that do not match the specified product family
         if product_family and p["product_family"] != product_family:
             continue
