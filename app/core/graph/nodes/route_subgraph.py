@@ -85,6 +85,7 @@ def make_route_subgraph(route_id: str) -> StateGraph:
             "history": history,         # chat history
             "user_text": last_msg,      # current user msg
             "context": context_text,    # optional; rag_data
+            "meta": ""
             # any route extras go here
         })
 

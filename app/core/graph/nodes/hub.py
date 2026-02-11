@@ -128,12 +128,18 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
     attempts = int(state.get("routing_attempts") or 0)
     triage_summary = (state.get("triage_summary") or "").strip()
 
+    # Build internal metadata for the prompt (kept as SYSTEM, not HUMAN)
+    meta_text = (
+        f"routing_attempts={attempts}\n"
+        f"triage_summary={triage_summary}\n"
+        f"from={from_val}"
+    )
+
     fmt_kwargs = {
         "user_text": last_message,
         "history": history,    # MUST be list[BaseMessage]
-        "from": from_val,
-        "routing_attempts": attempts,
-        "triage_summary": triage_summary,
+        "context": "",  # this is used on paths for rag/catalog data
+        "meta": meta_text,
     }
 
     chain = classifier_prompt | classifier_llm

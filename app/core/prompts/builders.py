@@ -52,6 +52,8 @@ def make_chat_prompt(route_id: str, route_prompt: str, max_chars: int, human_tem
 
     return ChatPromptTemplate.from_messages([
         ("system", system),
+        # Internal metadata (kept as system, not human)
+        ("system", "META (uso interno, puede estar vacío):\n{meta}"),
         ("system", "Historial reciente (puede estar vacío):"),
         MessagesPlaceholder("history", optional=True),
         ("human", human_template),
@@ -72,19 +74,10 @@ def get_route_config(route_id: str) -> tuple:
 
 def get_default_human_template(route_id: str) -> str:
     """Default human template per route_id.
+
     Centralizes input formatting so callers don't duplicate templates.
     """
-    if route_id == "CLASSIFIER":
-        return (
-            "Intentos de ruteo hasta ahora: {routing_attempts}\n"
-            "Resumen de triage actual (puede estar vacío): {triage_summary}\n"
-            "Sender (si existe): {from}\n\n"
-            "Último mensaje del usuario:\n{user_text}"
-        )
-
-    # Default for route modules (safe generic)
-    # If you want to include RAG context later, expand this template.
-    return "Último mensaje del usuario:\n{user_text}"
+    return "{user_text}"
 
 
 def make_chat_prompt_for_route(route_id: str, human_template: str | None = None) -> tuple[ChatPromptTemplate, dict]:
