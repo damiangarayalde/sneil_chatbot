@@ -49,19 +49,3 @@ def node__finalize_turn(state: ChatState) -> ChatState:
     # Otherwise we are mid-handling (locked route exists across turns).
     updates["phase"] = "handling"
     return updates
-
-
-# def node__closed(state: ChatState) -> ChatState:
-#     """End-of-run node (legacy name).
-
-#     Nuance:
-#     - We use this node to end the current graph invocation.
-#     - We only mark the *case* as closed when we were in the handling phase.
-#       (When triage asks a clarifying question, we end the run but remain in triage.)
-
-#     This function is kept for backward compatibility; prefer `node__finalize_turn`.
-#     """
-#     # Keep the old behavior, but also reuse the new hygiene logic.
-#     if state.get("phase") == "handling":
-#         return {"phase": "closed"}
-#     return node__finalize_turn(state)

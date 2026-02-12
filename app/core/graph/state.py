@@ -7,8 +7,8 @@ from pydantic import Field
 
 
 class ChatState(TypedDict, total=False):
-    """Shared TypedDict describing the shape of the chat/graph state.
-
+    """
+    Shared TypedDict describing the shape of the chat/graph state.
     `messages` uses LangGraph's `add_messages` reducer so nodes can return
       `{ "messages": [msg] }` and have it appended (not overwritten).
     """
