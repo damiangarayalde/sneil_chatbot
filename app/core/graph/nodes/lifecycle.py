@@ -20,10 +20,6 @@ def node__finalize_turn(state: ChatState) -> ChatState:
     - We only set `phase` when it is missing / still in a transient value.
     """
 
-    # If a handler already decided the case is closed, do not override it.
-    if state.get("phase") == "closed":
-        return {}
-
     updates: dict = {}
 
     # If we asked a triage question this turn, we are in triage.
