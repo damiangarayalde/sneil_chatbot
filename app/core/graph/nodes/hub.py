@@ -126,12 +126,10 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
         from_val = ""
 
     attempts = int(state.get("routing_attempts") or 0)
-    triage_summary = (state.get("triage_summary") or "").strip()
 
     # Build internal metadata for the prompt (kept as SYSTEM, not HUMAN)
     meta_text = (
         f"routing_attempts={attempts}\n"
-        f"triage_summary={triage_summary}\n"
         f"from={from_val}"
     )
 

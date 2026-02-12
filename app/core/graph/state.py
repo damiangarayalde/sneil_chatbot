@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from langgraph.graph.message import add_messages
-from typing import Annotated, TypedDict, List, Optional, Dict, Any, Literal
+from typing import Annotated, TypedDict, List, Optional, Dict, Any
 from langchain_core.messages import BaseMessage
 from pydantic import Field
 
@@ -21,7 +21,6 @@ class ChatState(TypedDict, total=False):
     locked_route: Optional[str]
     routing_attempts: int
     triage_question: Optional[str]
-    triage_summary: Optional[str]
 
     # Per-route attempts / escalation
     attempts: Dict[str, int]
