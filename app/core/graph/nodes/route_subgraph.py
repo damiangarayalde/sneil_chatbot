@@ -36,12 +36,6 @@ def make_route_subgraph(route_id: str) -> StateGraph:
     - A compiled `StateGraph` ready to be invoked by the application.
     """
 
-    # Build prompt and get route config by passing only the route id
-    subgraph_prompt, route_cfg = make_chat_prompt_for_route(
-        route_id)
-    # Initialize LLM with structured output
-    llm = init_llm(model="gpt-4o-mini").with_structured_output(HandlerOutput)
-
     def retrieve(state: ChatState) -> ChatState:
         """
         Retrieves context documents for the specific product/route based on user query.
