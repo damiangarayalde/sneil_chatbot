@@ -20,7 +20,6 @@ class ChatState(TypedDict, total=False):
     confidence: Annotated[Optional[float], Field(ge=0, le=1)]
     locked_route: Optional[str]
     routing_attempts: int
-    triage_question: Optional[str]
 
     # Per-route attempts / escalation
     attempts: Dict[str, int]

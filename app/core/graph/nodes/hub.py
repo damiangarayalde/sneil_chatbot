@@ -94,7 +94,6 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
         return {
             "confidence": min(float(state.get("confidence", 0)), 0),
             "routing_attempts": state.get("routing_attempts", 0) + 1,
-            "triage_question": q,
             "messages": [AIMessage(content=q)],
         }
 
@@ -102,40 +101,30 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
     classifier_llm = llm.with_structured_output(
         UserIntentClassifier_output_format)
 
-    filtered = []
-    for m in prior_messages:
-        if isinstance(m, (HumanMessage, AIMessage)):
-            filtered.append(m)
+    # filtered = []
+    # for m in prior_messages:
+    #     if isinstance(m, (HumanMessage, AIMessage)):
+    #         filtered.append(m)
 
-    history: list[BaseMessage] = filtered[-CLASSIFIER_HISTORY_MAX_MESSAGES:]
+    # history: list[BaseMessage] = filtered[-CLASSIFIER_HISTORY_MAX_MESSAGES:]
 
-    # Cap total history size by dropping oldest messages (keeps type=list[BaseMessage]).
-    total_chars = sum(len(getattr(m, "content", "") or "") for m in history)
-    while history and total_chars > CLASSIFIER_HISTORY_MAX_CHARS:
-        dropped = history.pop(0)
-        total_chars -= len(getattr(dropped, "content", "") or "")
-
-    # Try to extract sender/phone info from the last message metadata if present
-    last_msg_obj = state["messages"][-1]
-    from_val = ""
-    try:
-        meta = getattr(last_msg_obj, "metadata", None)
-        if isinstance(meta, dict):
-            from_val = meta.get("from", "") or meta.get("sender", "")
-    except Exception:
-        from_val = ""
+    # # Cap total history size by dropping oldest messages (keeps type=list[BaseMessage]).
+    # total_chars = sum(len(getattr(m, "content", "") or "") for m in history)
+    # while history and total_chars > CLASSIFIER_HISTORY_MAX_CHARS:
+    #     dropped = history.pop(0)
+    #     total_chars -= len(getattr(dropped, "content", "") or "")
 
     attempts = int(state.get("routing_attempts") or 0)
 
     # Build internal metadata for the prompt (kept as SYSTEM, not HUMAN)
     meta_text = (
         f"routing_attempts={attempts}\n"
-        f"from={from_val}"
     )
 
     fmt_kwargs = {
         "user_text": last_message,
-        "history": history,    # MUST be list[BaseMessage]
+        # MUST be list[BaseMessage],.. was history before
+        "history": prior_messages,
         "context": "",  # this is used on paths for rag/catalog data
         "meta": meta_text,
     }
@@ -148,7 +137,7 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
         return {
             "confidence": float(result.confidence),
             "locked_route": result.estimated_route,
-            "triage_question": None,
+            "routing_attempts": 0,  # reset
         }
 
     # Low confidence: ask one clarifying question (must not be generic)
@@ -157,6 +146,5 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
     return {
         "confidence": float(result.confidence),
         "routing_attempts": attempts + 1,
-        "triage_question": question,
         "messages": [AIMessage(content=question)],
     }
