@@ -22,7 +22,7 @@ def handler_edge_map(routes: list[str]) -> Dict[str, str]:
 
 def end_turn_node() -> str:
     """Single place to define the end-of-turn node name."""
-    return "finalize_turn"
+    return "end_of_turn"
 
 
 def route_from_start(state: ChatState) -> str:
