@@ -88,6 +88,7 @@ def make_route_subgraph(route_id: str) -> StateGraph:
             # Clear lock and signal triage
             return {
                 "locked_route": None,
+                "confidence": 0,
             }
 
         # 4. Return the new assistant message (and any other state updates)
