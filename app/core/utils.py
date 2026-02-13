@@ -40,17 +40,8 @@ def is_valid_route(route_id: Optional[str], cfg: Optional[Dict[str, Any]] = None
     cfg = cfg or load_cfg()
     return route_id in get_routes(cfg)
 
-
-# def get_route_cfg(route_id: str, cfg: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-#     cfg = cfg or load_cfg()
-#     return cfg.get(route_id, {}) or {}
-
-
-# def get_classifier_cfg(cfg: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-#     cfg = cfg or load_cfg()
-#     return cfg.get("CLASSIFIER", {}) or {}
-
-
 # ---- LLM init ----
+
+
 def init_llm(model: str = "gpt-4o-mini", temperature: float = 0):
     return init_chat_model(model=model, temperature=temperature)

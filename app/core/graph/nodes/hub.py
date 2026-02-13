@@ -10,13 +10,8 @@ ALLOWED_ROUTES = set(get_routes())
 # Initialize the chat model used by the application
 llm = init_llm(model="gpt-4o-mini", temperature=0)
 
-# --- Step 3A routing configuration (keep here for now; can move later) ---
 ROUTE_LOCK_THRESHOLD = 0.75
 MAX_ROUTING_ATTEMPTS = 3
-
-# How much history to include in the classifier prompt (keep small for cost)
-CLASSIFIER_HISTORY_MAX_MESSAGES = 10
-CLASSIFIER_HISTORY_MAX_CHARS = 2500
 
 
 class UserIntentClassifier_output_format(BaseModel):
@@ -100,19 +95,6 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
     # If the msg pass the basic low-info filter, proceed with normal classification flow. This allows for some borderline cases to be classified based on their content, while still preventing obviously unhelpful messages from locking routes.
     classifier_llm = llm.with_structured_output(
         UserIntentClassifier_output_format)
-
-    # filtered = []
-    # for m in prior_messages:
-    #     if isinstance(m, (HumanMessage, AIMessage)):
-    #         filtered.append(m)
-
-    # history: list[BaseMessage] = filtered[-CLASSIFIER_HISTORY_MAX_MESSAGES:]
-
-    # # Cap total history size by dropping oldest messages (keeps type=list[BaseMessage]).
-    # total_chars = sum(len(getattr(m, "content", "") or "") for m in history)
-    # while history and total_chars > CLASSIFIER_HISTORY_MAX_CHARS:
-    #     dropped = history.pop(0)
-    #     total_chars -= len(getattr(dropped, "content", "") or "")
 
     attempts = int(state.get("routing_attempts") or 0)
 

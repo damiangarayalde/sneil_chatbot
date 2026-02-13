@@ -6,6 +6,11 @@ from langchain_core.messages import BaseMessage
 from pydantic import Field
 
 
+# How much history to include in the prompt (keep small for cost)
+CLASSIFIER_HISTORY_MAX_MESSAGES = 10
+CLASSIFIER_HISTORY_MAX_CHARS = 2500
+
+
 class ChatState(TypedDict, total=False):
     """
     Shared TypedDict describing the shape of the chat/graph state.
@@ -42,3 +47,16 @@ def get_history_and_last_msg(messages: list[BaseMessage]) -> tuple[list[BaseMess
     last_msg = getattr(last, "content", "") or ""
     history = list(messages[:-1])
     return history, last_msg
+
+    # filtered = []
+    # for m in prior_messages:
+    #     if isinstance(m, (HumanMessage, AIMessage)):
+    #         filtered.append(m)
+
+    # history: list[BaseMessage] = filtered[-CLASSIFIER_HISTORY_MAX_MESSAGES:]
+
+    # # Cap total history size by dropping oldest messages (keeps type=list[BaseMessage]).
+    # total_chars = sum(len(getattr(m, "content", "") or "") for m in history)
+    # while history and total_chars > CLASSIFIER_HISTORY_MAX_CHARS:
+    #     dropped = history.pop(0)
+    #     total_chars -= len(getattr(dropped, "content", "") or "")

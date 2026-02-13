@@ -1,7 +1,7 @@
 CLASSIFIER:
   max_chars: 500
   preferred_chars: [50, 400]
-  handoff_after_attempts: 2
+  handoff_after_attempts: 3
   whatsapp:
     tech: "https://wa.link/knk1e6"
     sales: "https://wa.link/blzjfv"
