@@ -10,8 +10,8 @@ load_dotenv()
 
 # ---- Config loading (routes) ----
 _CFG_CANDIDATES = [
-    Path("app/core/config/routes.yaml"),
-    Path("app/core/config/routes.yml"),
+    Path("app/core/config/config.yaml"),
+    Path("app/core/config/config.yml"),
 ]
 
 
@@ -41,14 +41,14 @@ def is_valid_route(route_id: Optional[str], cfg: Optional[Dict[str, Any]] = None
     return route_id in get_routes(cfg)
 
 
-def get_route_cfg(route_id: str, cfg: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-    cfg = cfg or load_cfg()
-    return cfg.get(route_id, {}) or {}
+# def get_route_cfg(route_id: str, cfg: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+#     cfg = cfg or load_cfg()
+#     return cfg.get(route_id, {}) or {}
 
 
-def get_classifier_cfg(cfg: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-    cfg = cfg or load_cfg()
-    return cfg.get("CLASSIFIER", {}) or {}
+# def get_classifier_cfg(cfg: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+#     cfg = cfg or load_cfg()
+#     return cfg.get("CLASSIFIER", {}) or {}
 
 
 # ---- LLM init ----
