@@ -33,6 +33,14 @@ class ChatState(TypedDict, total=False):
     retrieved: Optional[List[Dict[str, Any]]]
 
 
+def get_last_msg(messages: list[BaseMessage]) -> str:
+    """Return the content of the last message (empty string if missing)."""
+    if not messages:
+        return ""
+    last = messages[-1]
+    return getattr(last, "content", "") or ""
+
+
 def get_history_and_last_msg(messages: list[BaseMessage]) -> tuple[list[BaseMessage], str]:
     """Split the full messages list into (history, last_user_text).
 

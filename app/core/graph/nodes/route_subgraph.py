@@ -1,7 +1,8 @@
 from pydantic import BaseModel, Field
 from langgraph.graph import StateGraph, START, END
 from langchain_core.messages import AIMessage
-from app.core.graph.state import ChatState, get_history_and_last_msg
+from app.core.graph.state import ChatState, get_history_and_last_msg, get_last_msg
+from app.core.graph.small_talk_filter import should_retrieve
 from app.core.prompts.builders import make_chat_prompt_for_route
 from app.core.utils import init_llm
 from app.core.tools.rag import get_retriever
@@ -40,6 +41,10 @@ def make_route_subgraph(route_id: str) -> StateGraph:
     llm = init_llm(model="gpt-4o-mini", temperature=0)
     prompt_template, route_cfg = make_chat_prompt_for_route(route_id)
     chain = prompt_template | llm.with_structured_output(HandlerOutput)
+
+    def route_to_retrieve_or_generate(state: ChatState) -> str:
+        last_msg = get_last_msg(state.get("messages") or [])
+        return "retrieve" if should_retrieve(last_msg) else "generate"
 
     def retrieve(state: ChatState) -> ChatState:
         """
@@ -138,7 +143,10 @@ def make_route_subgraph(route_id: str) -> StateGraph:
     # g.add_node("maybe_handoff", maybe_handoff)
 
     # Flow: Start -> Retrieve Context -> Generate Answer -> End
-    g.add_edge(START, "retrieve")
+    g.add_conditional_edges(START, route_to_retrieve_or_generate, {
+        "retrieve": "retrieve",
+        "generate": "generate",
+    })
     g.add_edge("retrieve", "generate")
     g.add_edge("generate", END)
     # g.add_edge("generate", "enforce_limits")
