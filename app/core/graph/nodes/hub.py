@@ -7,14 +7,12 @@ from langchain_core.messages import AIMessage
 
 ALLOWED_ROUTES = set(get_routes())
 
-# Initialize the chat model used by the application
-llm = init_llm(model="gpt-4o-mini", temperature=0)
 
 ROUTE_LOCK_THRESHOLD = 0.75
 MAX_ROUTING_ATTEMPTS = 3
 
 
-class UserIntentClassifier_output_format(BaseModel):
+class ClassifierOutput(BaseModel):
     """Structured output model used to enforce the classifier's response shape."""
     estimated_route: Literal["TPMS", "AA", "CLIMATIZADOR"] = Field(
         ...,
@@ -67,8 +65,10 @@ def _route_disambiguation_question(route_guess: str) -> str:
     return "¿Podés decirme qué producto es y cuál es el problema principal?"
 
 
-# Build the classifier prompt from config (prompt_file under CLASSIFIER)
+# Initialize LLM and Prompt
+llm = init_llm(model="gpt-4o-mini", temperature=0)
 classifier_prompt, _ = make_chat_prompt_for_route("CLASSIFIER")
+chain = classifier_prompt | llm.with_structured_output(ClassifierOutput)
 
 
 def node__classify_user_intent(state: ChatState) -> ChatState:
@@ -92,10 +92,6 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
             "messages": [AIMessage(content=q)],
         }
 
-    # If the msg pass the basic low-info filter, proceed with normal classification flow. This allows for some borderline cases to be classified based on their content, while still preventing obviously unhelpful messages from locking routes.
-    classifier_llm = llm.with_structured_output(
-        UserIntentClassifier_output_format)
-
     attempts = int(state.get("routing_attempts") or 0)
 
     # Build internal metadata for the prompt (kept as SYSTEM, not HUMAN)
@@ -111,7 +107,6 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
         "meta": meta_text,
     }
 
-    chain = classifier_prompt | classifier_llm
     result = chain.invoke(fmt_kwargs)
 
     # If confidence is high enough OR attempts exceeded, lock route and proceed

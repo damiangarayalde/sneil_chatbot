@@ -6,6 +6,7 @@ from app.core.prompts.builders import make_chat_prompt_for_route
 from app.core.utils import init_llm
 from app.core.tools.rag import get_retriever
 # from app.tools.catalog_tool import catalog_lookup
+import time
 
 # Structured output schema for the handler
 
@@ -35,6 +36,11 @@ def make_route_subgraph(route_id: str) -> StateGraph:
     - A compiled `StateGraph` ready to be invoked by the application.
     """
 
+    # Initialize LLM and Prompt
+    llm = init_llm(model="gpt-4o-mini", temperature=0)
+    prompt_template, route_cfg = make_chat_prompt_for_route(route_id)
+    chain = prompt_template | llm.with_structured_output(HandlerOutput)
+
     def retrieve(state: ChatState) -> ChatState:
         """
         Retrieves context documents for the specific product/route based on user query.
@@ -55,6 +61,8 @@ def make_route_subgraph(route_id: str) -> StateGraph:
         If the user appears to ask for price/SKU/link, call the catalog tool
         and append its output to the context before invoking the LLM.
         """
+        t0 = time.perf_counter()
+
         history, last_msg = get_history_and_last_msg(
             state.get("messages") or [])
 
@@ -66,13 +74,6 @@ def make_route_subgraph(route_id: str) -> StateGraph:
        # Prepare context string from retrieved docs
         docs = state.get("retrieved") or []
         context_text = "\n\n".join(d.get("page_content", "") for d in docs)
-
-        # Initialize LLM and Prompt
-        llm = init_llm(model="gpt-4o-mini", temperature=0)
-        prompt_template, route_cfg = make_chat_prompt_for_route(route_id)
-
-        # Format the prompt with context and history
-        chain = prompt_template | llm.with_structured_output(HandlerOutput)
 
         response = chain.invoke({
             "history": history,         # chat history
@@ -89,7 +90,9 @@ def make_route_subgraph(route_id: str) -> StateGraph:
                 "locked_route": None,
                 "confidence": 0,
             }
+        dt_ms = (time.perf_counter() - t0) * 1000
 
+        print(f"Elapsed: {dt_ms:.1f} ms")
         # 4. Return the new assistant message (and any other state updates)
         return {
             "messages": [AIMessage(content=response.answer)]
