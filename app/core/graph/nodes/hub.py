@@ -1,13 +1,23 @@
 from typing import Literal, Optional
+
 from pydantic import BaseModel, Field, field_validator
-from app.core.graph.state import ChatState, get_history_and_last_msg
-from app.core.graph.small_talk_filter import is_low_info
-from app.core.prompts.builders import make_chat_prompt_for_route
-from app.core.utils import init_llm, get_routes, is_valid_route
 from langchain_core.messages import AIMessage
 
-ALLOWED_ROUTES = set(get_routes())
+from app.core.graph.state import ChatState, get_history_and_last_msg
+from app.core.graph.msg_heuristics_no_llm import (
+    asked_for_human,
+    default_clarifier,
+    direct_route_from_keywords,
+    escalation_message,
+    is_low_info,
+    route_disambiguation_question,
+    wrap_with_greeting,
+)
+from app.core.prompts.builders import make_chat_prompt_for_route
+from app.core.utils import init_llm, get_routes, is_valid_route
 
+
+ALLOWED_ROUTES = set(get_routes())
 
 ROUTE_LOCK_THRESHOLD = 0.75
 MAX_ROUTING_ATTEMPTS = 3
@@ -15,6 +25,7 @@ MAX_ROUTING_ATTEMPTS = 3
 
 class ClassifierOutput(BaseModel):
     """Structured output model used to enforce the classifier's response shape."""
+
     estimated_route: Literal["TPMS", "AA", "CLIMATIZADOR"] = Field(
         ...,
         description="Clasifica el tipo de mensaje como un route_id válido (ej: TPMS, AA, CLIMATIZADOR).",
@@ -35,17 +46,6 @@ class ClassifierOutput(BaseModel):
         return v
 
 
-def _route_disambiguation_question(route_guess: str) -> str:
-    # Route-specific fallback if you already have a good guess
-    if route_guess == "TPMS":
-        return "¿Es un problema de lectura de presión/temperatura, sensores que no aparecen, o instalación/configuración del TPMS?"
-    if route_guess == "AA":
-        return "¿Es sobre instalación/potencia/consumo del AA, o sobre rendimiento (no enfría / no calienta / caudal)?"
-    if route_guess == "CLIMATIZADOR":
-        return "¿Es sobre instalación/uso del climatizador o sobre rendimiento/consumo/ruidos?"
-    return "¿Podés decirme qué producto es y cuál es el problema principal?"
-
-
 # Initialize LLM and Prompt
 llm = init_llm(model="gpt-4o-mini", temperature=0)
 classifier_prompt, _ = make_chat_prompt_for_route("CLASSIFIER")
@@ -53,56 +53,79 @@ chain = classifier_prompt | llm.with_structured_output(ClassifierOutput)
 
 
 def node__classify_user_intent(state: ChatState) -> ChatState:
-    # PASS-THROUGH: if a route is already locked, do nothing.
-    # Graph edges will send execution to the correct handler.
+    """Hub / classifier node.
+
+    Rules (in order):
+    1) If already locked -> pass-through
+    2) If (attempts >= MAX) OR user asks for human -> escalate
+    3) If (support/sale) + single route mention -> lock route (no LLM)
+    4) If low-info -> greet + default clarifier question
+    5) Else call LLM:
+        - low confidence -> greet + clarifier question
+        - high confidence -> lock route
+    """
+
     locked = state.get("locked_route")
     if is_valid_route(locked):
         return {}
 
-    # Use the last user message to classify the route and confidence
     prior_messages, last_message = get_history_and_last_msg(
         state.get("messages") or [])
-
-    # --- HARD GUARD: low-info user replies should NOT lock a route
-    if is_low_info(last_message):
-        current_guess = state.get("estimated_route") or None
-        q = _route_disambiguation_question(current_guess)
-        return {
-            "confidence": min(float(state.get("confidence", 0)), 0),
-            "routing_attempts": state.get("routing_attempts", 0) + 1,
-            "messages": [AIMessage(content=q)],
-        }
-
+    last_message = last_message or ""
     attempts = int(state.get("routing_attempts") or 0)
 
-    # Build internal metadata for the prompt (kept as SYSTEM, not HUMAN)
-    meta_text = (
-        f"routing_attempts={attempts}\n"
-    )
-
-    fmt_kwargs = {
-        "user_text": last_message,
-        # MUST be list[BaseMessage],.. was history before
-        "history": prior_messages,
-        "context": "",  # this is used on paths for rag/catalog data
-        "meta": meta_text,
-    }
-
-    result = chain.invoke(fmt_kwargs)
-
-    # If confidence is high enough OR attempts exceeded, lock route and proceed
-    if float(result.confidence) >= ROUTE_LOCK_THRESHOLD or attempts >= MAX_ROUTING_ATTEMPTS:
+    # 2) escalation
+    if attempts >= MAX_ROUTING_ATTEMPTS or asked_for_human(last_message):
         return {
-            "confidence": float(result.confidence),
-            "locked_route": result.estimated_route,
-            "routing_attempts": 0,  # reset
+            "escalated_to_human": True,
+            "routing_attempts": 0,
+            "messages": [AIMessage(content=escalation_message())],
         }
 
-    # Low confidence: ask one clarifying question (must not be generic)
-    question = (result.clarifying_question or "").strip(
-    ) or _route_disambiguation_question(result.estimated_route)
+    # 3) cheap direct routing
+    direct = direct_route_from_keywords(last_message, ALLOWED_ROUTES)
+    if direct:
+        return {
+            "confidence": 1.0,
+            "estimated_route": direct,
+            "locked_route": direct,
+            "routing_attempts": 0,
+        }
+
+    # 4) low-info => don't lock
+    if is_low_info(last_message):
+        return {
+            "confidence": 0.0,
+            "routing_attempts": attempts + 1,
+            "messages": [AIMessage(content=default_clarifier())],
+        }
+
+    # 5) LLM classifier
+    meta_text = f"routing_attempts={attempts}\n"
+    fmt_kwargs = {
+        "user_text": last_message,
+        "history": prior_messages,
+        "context": "",
+        "meta": meta_text,
+    }
+    result = chain.invoke(fmt_kwargs)
+
+    # high confidence => lock
+    if float(result.confidence) >= ROUTE_LOCK_THRESHOLD:
+        return {
+            "confidence": float(result.confidence),
+            "estimated_route": result.estimated_route,
+            "locked_route": result.estimated_route,
+            "routing_attempts": 0,
+        }
+
+    # low confidence => ask a question
+    question = (result.clarifying_question or "").strip() or route_disambiguation_question(
+        result.estimated_route
+    )
     return {
         "confidence": float(result.confidence),
+        "estimated_route": result.estimated_route,
         "routing_attempts": attempts + 1,
-        "messages": [AIMessage(content=question)],
+        "messages": [AIMessage(content=wrap_with_greeting(question))],
     }

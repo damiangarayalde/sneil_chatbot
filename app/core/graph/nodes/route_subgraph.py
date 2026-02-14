@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field
 from langgraph.graph import StateGraph, START, END
 from langchain_core.messages import AIMessage
 from app.core.graph.state import ChatState, get_history_and_last_msg, get_last_msg
-from app.core.graph.small_talk_filter import should_retrieve
+from app.core.graph.msg_heuristics_no_llm import should_retrieve
 from app.core.prompts.builders import make_chat_prompt_for_route
 from app.core.utils import init_llm
 from app.core.tools.rag import get_retriever
