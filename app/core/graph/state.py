@@ -26,6 +26,12 @@ class ChatState(TypedDict, total=False):
     locked_route: Optional[str]
     routing_attempts: int
 
+    # Last classifier guess (even if not locked yet)
+    estimated_route: Optional[str]
+
+    # Escalation flag (handoff to human)
+    escalated_to_human: bool
+
     # Per-route attempts / escalation
     attempts: Dict[str, int]
 
