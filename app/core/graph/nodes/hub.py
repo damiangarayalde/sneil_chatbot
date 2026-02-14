@@ -1,6 +1,7 @@
 from typing import Literal, Optional
 from pydantic import BaseModel, Field, field_validator
 from app.core.graph.state import ChatState, get_history_and_last_msg
+from app.core.graph.small_talk_filter import is_low_info
 from app.core.prompts.builders import make_chat_prompt_for_route
 from app.core.utils import init_llm, get_routes, is_valid_route
 from langchain_core.messages import AIMessage
@@ -34,26 +35,6 @@ class ClassifierOutput(BaseModel):
         return v
 
 
-# Treat these as "low information" replies that should NOT lock a route
-LOW_INFO_MSGS = {
-    "hola", "buenas", "buen día", "buen dia", "buenas tardes", "buenas noches",
-    "ok", "oka", "dale", "listo", "joya", "perfecto", "bien",
-    "si", "sí", "no", "seguro", "claro", "gracias", "👍", "👌"
-}
-
-
-def _is_low_info(text: str) -> bool:
-    t = (text or "").strip().lower()
-    if not t:
-        return True
-    if t in LOW_INFO_MSGS:
-        return True
-    # very short acknowledgements are usually not enough to lock
-    if len(t) <= 3:
-        return True
-    return False
-
-
 def _route_disambiguation_question(route_guess: str) -> str:
     # Route-specific fallback if you already have a good guess
     if route_guess == "TPMS":
@@ -83,7 +64,7 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
         state.get("messages") or [])
 
     # --- HARD GUARD: low-info user replies should NOT lock a route
-    if _is_low_info(last_message):
+    if is_low_info(last_message):
         current_guess = state.get("estimated_route") or None
         q = _route_disambiguation_question(current_guess)
         return {

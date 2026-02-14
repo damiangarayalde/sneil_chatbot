@@ -52,6 +52,7 @@ def make_route_subgraph(route_id: str) -> StateGraph:
         # 2. Initialize the retriever for this specific route (e.g., 'TPMS', 'AA')
         retriever = get_retriever(route_id, k=5)
         retrieved_docs = retriever.invoke(last_msg)
+        print(f"Retrieved: {len(retrieved_docs)}")
 
         return {"retrieved": [d.dict() for d in retrieved_docs]}
 
