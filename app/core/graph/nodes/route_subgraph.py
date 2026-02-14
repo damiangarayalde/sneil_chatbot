@@ -94,6 +94,7 @@ def make_route_subgraph(route_id: str) -> StateGraph:
             # Clear lock and signal triage
             return {
                 "locked_route": None,
+                "retrieved": None,
                 "confidence": 0,
             }
         dt_ms = (time.perf_counter() - t0) * 1000
