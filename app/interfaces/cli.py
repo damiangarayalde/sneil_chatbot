@@ -28,10 +28,22 @@ def run_chatbot():
 
         # Print the last message from the assistant (only if it's actually an AIMessage)
         msgs = output.get("messages") or []
-        last_ai = next((m for m in reversed(
-            msgs) if isinstance(m, AIMessage)), None)
-        if last_ai:
-            print(f"Assistant: {last_ai.content}")
+
+        # Find the index of the last HumanMessage
+        last_human_idx = next(
+            (i for i in range(len(msgs) - 1, -1, -1)
+             if isinstance(msgs[i], HumanMessage)),
+            None
+        )
+
+        # Print all assistant messages after that human message
+        start = (last_human_idx + 1) if last_human_idx is not None else 0
+        ai_after = [m for m in msgs[start:] if isinstance(m, AIMessage)]
+
+        for j, m in enumerate(ai_after, start=1):
+            content = (m.content or "").strip()
+            if content:
+                print(f"Assistant[{j}]: {content}")
 
 
 if __name__ == "__main__":

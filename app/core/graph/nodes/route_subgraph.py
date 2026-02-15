@@ -94,6 +94,8 @@ def make_route_subgraph(route_id: str) -> StateGraph:
             "messages": [AIMessage(content=msg)],
             "attempts": 0,
             "escalated_to_human": True,
+            "locked_route": None,
+            "confidence": 0,
             "retrieved": None,
         }
 
