@@ -1,19 +1,27 @@
 from __future__ import annotations
 
 import time
+from typing import Literal
 
 from pydantic import BaseModel, Field
 from langgraph.graph import StateGraph, START, END
 from langchain_core.messages import AIMessage
+
 from app.core.graph.state import ChatState, get_history_and_last_msg, get_last_msg
-from app.core.graph.msg_heuristics_no_llm import should_retrieve
+from app.core.graph.msg_heuristics_no_llm import (
+    asked_for_human,
+    escalation_message,
+    route_disambiguation_question,
+    should_retrieve,
+    wrap_with_greeting,
+)
 from app.core.prompts.builders import make_chat_prompt_for_route
 from app.core.utils import init_llm
 from app.core.tools.rag import get_retriever
 # from app.tools.catalog_tool import catalog_lookup
 
 # -----------------------------------------------------------------------------
-# Structured output schema for the handler
+# Structured output schema for the route handler
 
 
 class HandlerOutput(BaseModel):
@@ -55,16 +63,56 @@ def make_route_subgraph(route_id: str) -> StateGraph:
         or 0
     )
 
-    def route_to_retrieve_or_generate(state: ChatState) -> str:
+    # Confirmation message MUST be separate from the LLM answer (per spec).
+    CONFIRMATION_MSG = "¿Esto te sirvió? Respondé Sí o No."
+
+    def route_from_start(state: ChatState) -> Literal["handoff", "clarify", "retrieve"]:
+        """Single decision point at START."""
         last_msg = get_last_msg(state.get("messages") or [])
-        return "retrieve" if should_retrieve(last_msg) else "generate"
+        attempts = int(state.get("attempts") or 0)
+
+        # 0) explicit human request always wins
+        if asked_for_human(last_msg):
+            return "handoff"
+
+        # 1) max attempts gate (check BEFORE any solving work)
+        if max_solving_attempts and attempts >= max_solving_attempts:
+            return "handoff"
+
+        # 2) first attempt and vague message => clarifying question (no RAG, no attempts increment)
+        if attempts == 0 and not should_retrieve(last_msg):
+            return "clarify"
+
+        # 3) otherwise, solve path (always includes retrieval)
+        return "retrieve"
+
+    def handoff(state: ChatState) -> ChatState:
+        """Apologize + recommend human support. Reset attempts."""
+        msg = (
+            "Disculpá — intenté ayudarte, pero me falta información o no puedo confirmar una solución con lo que tengo.\n\n"
+            f"{escalation_message()}"
+        )
+        return {
+            "messages": [AIMessage(content=msg)],
+            "attempts": 0,
+            "escalated_to_human": True,
+            "retrieved": None,
+        }
+
+    def clarify(state: ChatState) -> ChatState:
+        """Ask for clarification using heuristics (no LLM, no RAG)."""
+        q = route_disambiguation_question(route_id)
+        return {
+            "messages": [AIMessage(content=wrap_with_greeting(q))],
+            "retrieved": None,
+        }
 
     def retrieve(state: ChatState) -> ChatState:
         """Retrieve context documents for the route based on the user query."""
         last_msg = get_last_msg(state.get("messages") or [])
         retriever = get_retriever(route_id, k=3)
         retrieved_docs = retriever.invoke(last_msg)
-        print(f"Retrieved: {len(retrieved_docs)}")
+        print(f"[{route_id}] Retrieved docs: {len(retrieved_docs)}")
         return {"retrieved": [d.dict() for d in retrieved_docs]}
 
     def generate(state: ChatState) -> ChatState:
@@ -83,9 +131,9 @@ def make_route_subgraph(route_id: str) -> StateGraph:
         #         user_text, product_family=route_id, k=3)
         #     context += "\n\nCATALOG_LOOKUP:\n" + str(tool_out)
 
-       # Prepare context string from retrieved docs
+        # Prepare context string from retrieved docs
         docs = state.get("retrieved") or []
-        context_text = "\n\n".join(d.get("page_content", "") for d in docs)
+        context_text = "\n\n".join((d.get("page_content") or "") for d in docs)
 
         response = chain.invoke({
             "history": history,         # chat history
@@ -112,19 +160,16 @@ def make_route_subgraph(route_id: str) -> StateGraph:
         attempts_so_far = int(state.get("attempts") or 0) + 1
 
         answer_text = (response.answer or "").strip()
+        if not answer_text:
+            answer_text = "Entiendo. ¿Podés darme un poco más de detalle para ayudarte mejor?"
 
         escalated = bool(state.get("escalated_to_human", False))
-        if max_solving_attempts and attempts_so_far >= max_solving_attempts:
-            escalated = True
-            # Append handoff link only the first time we reach the threshold.
-            if attempts_so_far == max_solving_attempts:
-                tech = (route_cfg.get("whatsapp") or {}).get("tech")
-                if tech:
-                    answer_text += f"\n\nDisculpame, le puse garra pero parece que me falta informacion o no puedo darte esa respuesta. Si querés, te derivamos por WhatsApp: {tech}"
 
-        # 4. Return the new assistant message (and any other state updates)
         return {
-            "messages": [AIMessage(content=answer_text)],
+            "messages": [
+                AIMessage(content=answer_text),
+                AIMessage(content=CONFIRMATION_MSG),
+            ],
             "attempts": attempts_so_far,
             "escalated_to_human": escalated,
         }
@@ -151,15 +196,25 @@ def make_route_subgraph(route_id: str) -> StateGraph:
     # --- Graph Construction ---
     g = StateGraph(ChatState)
 
+    g.add_node("handoff", handoff)
+    g.add_node("clarify", clarify)
     g.add_node("retrieve", retrieve)
     g.add_node("generate", generate)
     # g.add_node("enforce_limits", enforce_limits)
 
-    # Flow: Start -> Retrieve Context -> Generate Answer -> End
-    g.add_conditional_edges(START, route_to_retrieve_or_generate, {
-        "retrieve": "retrieve",
-        "generate": "generate",
-    })
+    # Start decision (gate + clarify vs solve)
+    g.add_conditional_edges(
+        START,
+        route_from_start,
+        {
+            "handoff": "handoff",
+            "clarify": "clarify",
+            "retrieve": "retrieve",
+        },
+    )
+
+    g.add_edge("handoff", END)
+    g.add_edge("clarify", END)
     g.add_edge("retrieve", "generate")
     g.add_edge("generate", END)
     # g.add_edge("generate", "enforce_limits")
