@@ -61,9 +61,6 @@ def make_route_subgraph(route_id: str) -> StateGraph:
         or 0
     )
 
-    # Confirmation message MUST be separate from the LLM answer (per spec).
-    CONFIRMATION_MSG = "¿Esto te sirvió? Respondé Sí o No."
-
     def route_from_start(state: ChatState) -> Literal["handoff", "clarify", "retrieve"]:
         """Single decision point at START."""
         last_msg = get_last_msg(state.get("messages") or [])
@@ -166,10 +163,7 @@ def make_route_subgraph(route_id: str) -> StateGraph:
         escalated = bool(state.get("escalated_to_human", False))
 
         return {
-            "messages": [
-                AIMessage(content=answer_text),
-                AIMessage(content=CONFIRMATION_MSG),
-            ],
+            "messages": [AIMessage(content=answer_text)],
             "attempts": attempts_so_far,
             "escalated_to_human": escalated,
         }

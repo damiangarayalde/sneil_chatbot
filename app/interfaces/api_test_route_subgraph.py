@@ -216,6 +216,7 @@ async def chat(req: Request):
     # This mirrors the minimal state used in test_route_subgraph.py.
     input_data = {
         "locked_route": TEST_ROUTE,
+        "attempts": 1,
         "messages": [HumanMessage(content=text)],
     }
 
