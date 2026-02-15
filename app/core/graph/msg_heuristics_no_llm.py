@@ -13,8 +13,15 @@ from __future__ import annotations
 
 import os
 import re
+from functools import lru_cache
 from typing import Dict, List, Optional, Set
 
+from app.core.utils import (
+    get_route_clarifying_question,
+    get_route_mentions,
+    get_routes,
+    load_cfg,
+)
 
 # --------------------------------------------------------------------------------------
 # Low-info / small talk
@@ -127,20 +134,39 @@ def contains_support_or_sale(text: str) -> bool:
     return any(w in t for w in _SUPPORT_SALE_WORDS)
 
 
+def reload_route_heuristics_cache() -> None:
+    """Clear the in-process cache for route mentions (next call re-reads config)."""
+    _route_mentions_map_from_cfg.cache_clear()
+
+
+@lru_cache(maxsize=1)
+def _route_mentions_map_from_cfg() -> Dict[str, List[str]]:
+    """Build the route->mentions map from config (cached)."""
+    cfg = load_cfg()
+    out: Dict[str, List[str]] = {}
+    for route_id in get_routes(cfg):
+        out[route_id] = get_route_mentions(route_id, cfg)
+    return out
+
+
 def direct_route_from_keywords(text: str, allowed_routes: Set[str]) -> Optional[str]:
     """Fast-path routing.
 
     If the message clearly indicates 'support/sale' AND mentions exactly one route,
     we can lock without spending an LLM call.
+
+    Route aliases/synonyms come from config (no hardcoded product lists here).
     """
     t = normalize(text)
     if not t or not contains_support_or_sale(t):
         return None
 
+    mentions_map = _route_mentions_map_from_cfg()
+
     hits: List[str] = []
     for route in allowed_routes:
         route_hits = [route.lower()]
-        route_hits += _ROUTE_MENTIONS.get(route, [])
+        route_hits += mentions_map.get(route, [])
         if any(k in t for k in route_hits):
             hits.append(route)
 
@@ -169,11 +195,25 @@ def wrap_with_greeting(text: str) -> str:
 
 
 def route_disambiguation_question(route_guess: Optional[str]) -> str:
-    """Route-specific fallback if you already have a good guess."""
-    if route_guess == "TPMS":
-        return "¿Es un problema de lectura de presión/temperatura, sensores que no aparecen, o instalación/configuración del TPMS?"
-    if route_guess == "AA":
-        return "¿Es sobre instalación/potencia/consumo del AA, o sobre rendimiento (no enfría / no calienta / caudal)?"
-    if route_guess == "CLIMATIZADOR":
-        return "¿Es sobre instalación/uso del climatizador o sobre rendimiento/consumo/ruidos?"
+    """Route-specific fallback if you already have a good guess.
+
+    The per-route question (if any) is read from config under:
+      <ROUTE_ID>.heuristics.clarifying_question
+
+    If missing, we fall back to a generic question (still no hardcoded route logic).
+    """
+    if route_guess:
+        cfg = load_cfg()
+        q = get_route_clarifying_question(route_guess, cfg)
+        if q:
+            return q
+
+        # Generic fallback (route_guess might not exist in config)
+        rg = (route_guess or "").strip()
+        if rg:
+            return (
+                f"¿Tu consulta es sobre {rg}? "
+                "¿Es por instalación/configuración o por un problema de funcionamiento?"
+            )
+
     return "¿Podés decirme qué producto es y cuál es el problema principal?"
