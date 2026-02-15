@@ -72,13 +72,13 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
     prior_messages, last_message = get_history_and_last_msg(
         state.get("messages") or [])
     last_message = last_message or ""
-    attempts = int(state.get("routing_attempts") or 0)
+    attempts = int(state.get("attempts") or 0)
 
     # 2) escalation
     if attempts >= MAX_ROUTING_ATTEMPTS or asked_for_human(last_message):
         return {
             "escalated_to_human": True,
-            "routing_attempts": 0,
+            "attempts": 0,
             "messages": [AIMessage(content=escalation_message())],
         }
 
@@ -89,14 +89,14 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
             "confidence": 1.0,
             "estimated_route": direct,
             "locked_route": direct,
-            "routing_attempts": 0,
+            "attempts": 0,
         }
 
     # 4) low-info => don't lock
     if is_low_info(last_message):
         return {
             "confidence": 0.0,
-            "routing_attempts": attempts + 1,
+            "attempts": attempts + 1,
             "messages": [AIMessage(content=default_clarifier())],
         }
 
@@ -116,7 +116,7 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
             "confidence": float(result.confidence),
             "estimated_route": result.estimated_route,
             "locked_route": result.estimated_route,
-            "routing_attempts": 0,
+            "attempts": 0,
         }
 
     # low confidence => ask a question
@@ -126,6 +126,6 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
     return {
         "confidence": float(result.confidence),
         "estimated_route": result.estimated_route,
-        "routing_attempts": attempts + 1,
+        "attempts": attempts + 1,
         "messages": [AIMessage(content=wrap_with_greeting(question))],
     }
