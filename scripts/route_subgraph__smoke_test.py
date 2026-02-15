@@ -37,8 +37,7 @@ def _get_max_solving_attempts(route_id: str) -> int:
     # Reuse the same config source as the subgraph
     _, route_cfg = make_chat_prompt_for_route(route_id)
     return int(
-        route_cfg.get("max_solving_attempts")
-        or route_cfg.get("handoff_after_attempts")
+        route_cfg.get("max_attempts_before_handoff")
         or 0
     )
 

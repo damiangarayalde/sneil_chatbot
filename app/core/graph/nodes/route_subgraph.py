@@ -56,10 +56,8 @@ def make_route_subgraph(route_id: str) -> StateGraph:
     chain = prompt_template | llm.with_structured_output(HandlerOutput)
 
     # Max number of iterative solution attempts before we suggest human handoff.
-    # (Config key: max_solving_attempts; supports legacy 'handoff_after_attempts'.)
-    max_solving_attempts = int(
-        route_cfg.get("max_solving_attempts")
-        or route_cfg.get("handoff_after_attempts")
+    max_attempts_before_handoff = int(
+        route_cfg.get("max_attempts_before_handoff")
         or 0
     )
 
@@ -76,7 +74,7 @@ def make_route_subgraph(route_id: str) -> StateGraph:
             return "handoff"
 
         # 1) max attempts gate (check BEFORE any solving work)
-        if max_solving_attempts and attempts >= max_solving_attempts:
+        if max_attempts_before_handoff and attempts >= max_attempts_before_handoff:
             return "handoff"
 
         # 2) first attempt and vague message => clarifying question (no RAG, no attempts increment)
