@@ -8,6 +8,7 @@ CLASSIFIER:
     sales: https://wa.link/blzjfv
   prompt_file: app/core/prompts/classifier.md
   max_attempts_before_handoff: 3
+  route_lock_threshold: 0.75
 TPMS:
   max_chars: 500
   preferred_chars:

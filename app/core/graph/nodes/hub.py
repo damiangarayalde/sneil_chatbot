@@ -19,9 +19,6 @@ from app.core.utils import init_llm, get_routes, is_valid_route
 
 ALLOWED_ROUTES = set(get_routes())
 
-ROUTE_LOCK_THRESHOLD = 0.75
-MAX_ROUTING_ATTEMPTS = 3
-
 
 class ClassifierOutput(BaseModel):
     """Structured output model used to enforce the classifier's response shape."""
@@ -48,8 +45,19 @@ class ClassifierOutput(BaseModel):
 
 # Initialize LLM and Prompt
 llm = init_llm(model="gpt-4o-mini", temperature=0)
-classifier_prompt, _ = make_chat_prompt_for_route("CLASSIFIER")
+classifier_prompt, classifier_cfg = make_chat_prompt_for_route("CLASSIFIER")
 chain = classifier_prompt | llm.with_structured_output(ClassifierOutput)
+
+# Max number of iterative solution attempts before we suggest human handoff.
+max_attempts_before_handoff = int(
+    classifier_cfg.get("max_attempts_before_handoff")
+    or 0
+)
+
+route_lock_threshold = int(
+    classifier_cfg.get("route_lock_threshold")
+    or 0.0
+)
 
 
 def node__classify_user_intent(state: ChatState) -> ChatState:
@@ -75,7 +83,7 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
     attempts = int(state.get("attempts") or 0)
 
     # 2) escalation
-    if attempts >= MAX_ROUTING_ATTEMPTS or asked_for_human(last_message):
+    if attempts >= max_attempts_before_handoff or asked_for_human(last_message):
         return {
             "escalated_to_human": True,
             "attempts": 0,
@@ -111,7 +119,7 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
     result = chain.invoke(fmt_kwargs)
 
     # high confidence => lock
-    if float(result.confidence) >= ROUTE_LOCK_THRESHOLD:
+    if float(result.confidence) >= route_lock_threshold:
         return {
             "confidence": float(result.confidence),
             "estimated_route": result.estimated_route,
