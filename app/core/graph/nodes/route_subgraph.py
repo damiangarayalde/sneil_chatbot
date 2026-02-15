@@ -109,25 +109,22 @@ def make_route_subgraph(route_id: str) -> StateGraph:
 
         print(f"Elapsed: {dt_ms:.1f} ms")
         # Count one "solving attempt" each time we send an LLM answer back.
-        solving_attempts = dict(
-            state.get("solving_attempts") or state.get("attempts") or {})
-        solving_attempts[route_id] = int(solving_attempts.get(route_id, 0)) + 1
-        n_attempts = solving_attempts[route_id]
+        attempts_so_far = state.get("attempts") or 0 + 1
 
         answer_text = response.answer
         escalated = bool(state.get("escalated_to_human", False))
-        if max_solving_attempts and n_attempts >= max_solving_attempts:
+        if max_solving_attempts and attempts_so_far >= max_solving_attempts:
             escalated = True
             # Append handoff link only the first time we reach the threshold.
-            if n_attempts == max_solving_attempts:
+            if attempts_so_far == max_solving_attempts:
                 tech = (route_cfg.get("whatsapp") or {}).get("tech")
                 if tech:
-                    answer_text += f"\n\nSi querés, te derivamos por WhatsApp: {tech}"
+                    answer_text += f"\n\nDisculpame, le puse garra pero parece que me falta informacion o no puedo darte esa respuesta. Si querés, te derivamos por WhatsApp: {tech}"
 
         # 4. Return the new assistant message (and any other state updates)
         return {
             "messages": [AIMessage(content=answer_text)],
-            "solving_attempts": solving_attempts,
+            "attempts": attempts_so_far,
             "escalated_to_human": escalated,
         }
 

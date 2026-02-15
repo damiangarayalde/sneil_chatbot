@@ -24,7 +24,6 @@ class ChatState(TypedDict, total=False):
     # Routing
     confidence: Annotated[Optional[float], Field(ge=0, le=1)]
     locked_route: Optional[str]
-    routing_attempts: int
 
     # Last classifier guess (even if not locked yet)
     estimated_route: Optional[str]
@@ -33,7 +32,7 @@ class ChatState(TypedDict, total=False):
     escalated_to_human: bool
 
     # Per-route attempts / escalation
-    attempts: Dict[str, int]
+    attempts: int
 
     # RAG output (its a list of docs)
     retrieved: Optional[List[Dict[str, Any]]]
