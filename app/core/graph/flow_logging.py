@@ -156,7 +156,7 @@ def wrap_node(name: str, fn: Callable[[ChatState], ChatState]) -> Callable[[Chat
 
         flow_bar = _render_flow_bar(name, merged)
 
-        # Tail: signal-heavy routing + hygiene fields (NO triage question)
+        # Tail: signal-heavy routing
         tail_parts: List[str] = []
 
         out_locked = merged.get("locked_route")
@@ -168,9 +168,9 @@ def wrap_node(name: str, fn: Callable[[ChatState], ChatState]) -> Callable[[Chat
         if isinstance(conf, (float, int)):
             tail_parts.append(f"confidence={float(conf):.3f}")
 
-        ra = merged.get("routing_attempts")
+        ra = merged.get("attempts")
         if isinstance(ra, int) and ra != 0:
-            tail_parts.append(f"routing_attempts={ra}")
+            tail_parts.append(f"attempts={ra}")
 
         tail = ("  " + " ".join(tail_parts[:_MAX_KVS])) if tail_parts else ""
         print(f"[ {flow_bar} ] {tail}")
