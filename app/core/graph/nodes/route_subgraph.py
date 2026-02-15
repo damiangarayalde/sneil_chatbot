@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+import time
+
 from pydantic import BaseModel, Field
 from langgraph.graph import StateGraph, START, END
 from langchain_core.messages import AIMessage
@@ -7,34 +11,35 @@ from app.core.prompts.builders import make_chat_prompt_for_route
 from app.core.utils import init_llm
 from app.core.tools.rag import get_retriever
 # from app.tools.catalog_tool import catalog_lookup
-import time
 
+# -----------------------------------------------------------------------------
 # Structured output schema for the handler
 
 
 class HandlerOutput(BaseModel):
-    """Decide if the topic is still relevant or if a switch is needed."""
+    """Route handler output.
+
+    - If the user switched product/topic, we want to clear lock so hub can re-route.
+    - Otherwise we send back an answer.
+    """
     is_topic_switch: bool = Field(
-        description="True if the user changed the topic to a different product.")
+        description="True if the user changed the topic to a different product."
+    )
     answer: str = Field(
-        description="The response to the user. Empty if is_topic_switch is True.")
+        description="The response to the user. Empty if is_topic_switch is True."
+    )
+
+# -----------------------------------------------------------------------------
+# Graph factory
 
 
 def make_route_subgraph(route_id: str) -> StateGraph:
-    """Construct a StateGraph subgraph for a given route.
+    """Construct a StateGraph subgraph for a given locked route.
 
-    Nodes:
-    - retrieve: Fetches context documents from vector store based on user input.
-    - generate: Uses context and history to produce a structured answer.
-    - enforce_limits: shorten the answer if it exceeds `max_chars`
-    - maybe_handoff: optionally append a WhatsApp handoff link after N attempts
-
-    Parameters:
-    - route_id (str): Key used to lookup route configuration in
-        `config/routes.yaml` and to locate route-specific indexes/prompts.
-
-    Returns:
-    - A compiled `StateGraph` ready to be invoked by the application.
+    Intended behavior:
+    1) START checks max solve attempts (and explicit human request). If exceeded => handoff + reset attempts.
+    2) If attempts == 0 and message is vague => clarifying question (NO RAG, NO attempts increment)
+    3) Otherwise => retrieve (RAG) => generate answer + separate confirmation => attempts += 1
     """
 
     # Initialize LLM and Prompt
@@ -55,18 +60,11 @@ def make_route_subgraph(route_id: str) -> StateGraph:
         return "retrieve" if should_retrieve(last_msg) else "generate"
 
     def retrieve(state: ChatState) -> ChatState:
-        """
-        Retrieves context documents for the specific product/route based on user query.
-        Then and stores them as dictionaries in the state.    
-        """
-        last_msg = state["messages"][-1].content if state.get(
-            "messages") else ""
-
-        # 2. Initialize the retriever for this specific route (e.g., 'TPMS', 'AA')
-        retriever = get_retriever(route_id, k=5)
+        """Retrieve context documents for the route based on the user query."""
+        last_msg = get_last_msg(state.get("messages") or [])
+        retriever = get_retriever(route_id, k=3)
         retrieved_docs = retriever.invoke(last_msg)
         print(f"Retrieved: {len(retrieved_docs)}")
-
         return {"retrieved": [d.dict() for d in retrieved_docs]}
 
     def generate(state: ChatState) -> ChatState:
