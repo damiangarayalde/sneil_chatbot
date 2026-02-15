@@ -97,19 +97,22 @@ def make_route_subgraph(route_id: str) -> StateGraph:
 
         # If the user switched product/topic, clear lock so the hub can re-route.
         if response.is_topic_switch:
-            # Clear lock and signal triage
             return {
                 "locked_route": None,
                 "retrieved": None,
                 "confidence": 0,
+                "attempts": 0,
             }
+
         dt_ms = (time.perf_counter() - t0) * 1000
 
-        print(f"Elapsed: {dt_ms:.1f} ms")
-        # Count one "solving attempt" each time we send an LLM answer back.
-        attempts_so_far = state.get("attempts") or 0 + 1
+        print(f"[{route_id}] LLM elapsed: {dt_ms:.1f} ms")
 
-        answer_text = response.answer
+        # Count one "solving attempt" each time we send an LLM answer back.
+        attempts_so_far = int(state.get("attempts") or 0) + 1
+
+        answer_text = (response.answer or "").strip()
+
         escalated = bool(state.get("escalated_to_human", False))
         if max_solving_attempts and attempts_so_far >= max_solving_attempts:
             escalated = True
@@ -145,24 +148,12 @@ def make_route_subgraph(route_id: str) -> StateGraph:
         #     compress_prompt.format_messages(text=ans)).content
         return state
 
-    def maybe_handoff(state: ChatState) -> ChatState:
-        # """Optionally append a WhatsApp handoff after repeated attempts."""
-        # if not handoff_after:
-        #     return state
-        # attempts = state["attempts"].get(route_id, 0)
-        # state["attempts"][route_id] = attempts + 1
-        # if state["attempts"][route_id] >= handoff_after:
-        #     tech = cfg[route_id]["whatsapp"]["tech"]
-        #     state["answer"] += f"\n\nSi querés, te derivamos por WhatsApp: {tech}"
-        return state
-
     # --- Graph Construction ---
     g = StateGraph(ChatState)
 
     g.add_node("retrieve", retrieve)
     g.add_node("generate", generate)
     # g.add_node("enforce_limits", enforce_limits)
-    # g.add_node("maybe_handoff", maybe_handoff)
 
     # Flow: Start -> Retrieve Context -> Generate Answer -> End
     g.add_conditional_edges(START, route_to_retrieve_or_generate, {
@@ -173,5 +164,4 @@ def make_route_subgraph(route_id: str) -> StateGraph:
     g.add_edge("generate", END)
     # g.add_edge("generate", "enforce_limits")
     # g.add_edge("enforce_limits", "maybe_handoff")
-    # g.add_edge("maybe_handoff", END)
     return g.compile()
