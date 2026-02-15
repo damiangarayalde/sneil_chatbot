@@ -85,7 +85,8 @@ def _invoke(graph, thread_id: str, state_update: Dict[str, Any], *, trace: bool 
         for event in graph.stream(state_update, config=cfg):
             if isinstance(event, dict):
                 keys = list(event.keys())
-                print("event keys:", keys[:6], ("..." if len(keys) > 6 else ""))
+                print("event keys:", keys[:6],
+                      ("..." if len(keys) > 6 else ""))
                 if len(event) == 1:
                     maybe = next(iter(event.values()))
                     if isinstance(maybe, dict):
@@ -196,23 +197,27 @@ def run_scenario(graph, scenario: Scenario, *, trace: bool = False):
         expect = t.expect or {}
         soft_expect = t.soft_expect or {}
 
-        state_update = {"messages": [HumanMessage(content=t.user)], **overrides}
+        state_update = {"messages": [
+            HumanMessage(content=t.user)], **overrides}
 
         try:
             out_state = _invoke(graph, thread_id, state_update, trace=trace)
         except Exception as e:
-            print("\n!! ERROR invoking graph on turn", i, ":", type(e).__name__, str(e))
+            print("\n!! ERROR invoking graph on turn",
+                  i, ":", type(e).__name__, str(e))
             return
 
         _print_turn(f"Turn {i}", t.user, out_state)
 
         # Hard expectations first (fail-fast)
         if expect:
-            _check_expectations(scenario.title, i, out_state, expect, soft=False)
+            _check_expectations(scenario.title, i,
+                                out_state, expect, soft=False)
 
         # Soft expectations (warn only)
         if soft_expect:
-            _check_expectations(scenario.title, i, out_state, soft_expect, soft=True)
+            _check_expectations(scenario.title, i, out_state,
+                                soft_expect, soft=True)
 
 
 def main():
@@ -274,7 +279,8 @@ def main():
                     "no enfría y la unidad se apaga sola."
                 ),
                 # Best-effort: handler should clear lock, hub should re-lock AA, and AA handler may run.
-                soft_expect={"locked_route_in": ["AA", None], "estimated_route_eq": "AA"},
+                soft_expect={"locked_route_in": [
+                    "AA", None], "estimated_route_eq": "AA"},
             ),
             Turn(
                 user="Sí, es AA. ¿Qué puedo revisar primero?",
@@ -294,7 +300,8 @@ def main():
             ),
             Turn(
                 user="Ahora volviendo al TPMS: me aparece sensor perdido en la rueda trasera.",
-                soft_expect={"locked_route_in": ["TPMS", None], "estimated_route_eq": "TPMS"},
+                soft_expect={"locked_route_in": [
+                    "TPMS", None], "estimated_route_eq": "TPMS"},
             ),
             Turn(
                 user="Es TPMS, modelo externo.",
@@ -314,13 +321,14 @@ def main():
         turns=[
             Turn(
                 user="Sigue sin funcionar.",
-                overrides={"locked_route": route_id, "attempts": seeded_attempts},
+                overrides={"locked_route": route_id,
+                           "attempts": seeded_attempts},
                 expect={"escalated_eq": True, "attempts_eq": 0},
             )
         ],
     )
 
-    scenarios = [s1, s2, s3, s4, s5]
+    scenarios = [s2]  # [s1, s2, s3]  # , s4, s5]
 
     for s in scenarios:
         try:

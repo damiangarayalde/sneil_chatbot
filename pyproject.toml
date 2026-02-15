@@ -31,7 +31,9 @@ dependencies = [
 ]
 
 [project.scripts]
-sneil-chatbot = "app.interfaces.cli:run_chatbot"
+chatbot = "app.interfaces.cli:run_chatbot"
+chatbot-api = "app.interfaces.dev_api:main"
+soporte-api = "app.interfaces.api_test_route_subgraph:main"
 
 [tool.setuptools.packages.find]
 include = ["app*"]
