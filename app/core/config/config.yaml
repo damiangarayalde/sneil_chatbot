@@ -7,7 +7,7 @@ CLASSIFIER:
     tech: https://wa.link/knk1e6
     sales: https://wa.link/blzjfv
   prompt_file: app/core/prompts/classifier.md
-  max_solving_attempts: 3
+  max_attempts_before_handoff: 3
 TPMS:
   max_chars: 500
   preferred_chars:
@@ -26,7 +26,7 @@ TPMS:
     - sensores
     clarifying_question: ¿Es un problema de lectura de presión/temperatura, sensores
       que no aparecen, o instalación/configuración del TPMS?
-  max_solving_attempts: 2
+  max_attempts_before_handoff: 2
 AA:
   max_chars: 600
   preferred_chars:
@@ -45,7 +45,7 @@ AA:
     - ac
     clarifying_question: ¿Es sobre instalación/potencia/consumo del AA, o sobre rendimiento
       (no enfría / no calienta / caudal)?
-  max_solving_attempts: 2
+  max_attempts_before_handoff: 2
 CLIMATIZADOR:
   max_chars: 600
   preferred_chars:
@@ -61,4 +61,4 @@ CLIMATIZADOR:
     - caldera
     - air heater
     clarifying_question: ¿Es sobre instalación/uso del climatizador o sobre rendimiento/consumo/ruidos?
-  max_solving_attempts: 2
+  max_attempts_before_handoff: 2
