@@ -42,6 +42,14 @@ def make_route_subgraph(route_id: str) -> StateGraph:
     prompt_template, route_cfg = make_chat_prompt_for_route(route_id)
     chain = prompt_template | llm.with_structured_output(HandlerOutput)
 
+    # Max number of iterative solution attempts before we suggest human handoff.
+    # (Config key: max_solving_attempts; supports legacy 'handoff_after_attempts'.)
+    max_solving_attempts = int(
+        route_cfg.get("max_solving_attempts")
+        or route_cfg.get("handoff_after_attempts")
+        or 0
+    )
+
     def route_to_retrieve_or_generate(state: ChatState) -> str:
         last_msg = get_last_msg(state.get("messages") or [])
         return "retrieve" if should_retrieve(last_msg) else "generate"
@@ -100,9 +108,27 @@ def make_route_subgraph(route_id: str) -> StateGraph:
         dt_ms = (time.perf_counter() - t0) * 1000
 
         print(f"Elapsed: {dt_ms:.1f} ms")
+        # Count one "solving attempt" each time we send an LLM answer back.
+        solving_attempts = dict(
+            state.get("solving_attempts") or state.get("attempts") or {})
+        solving_attempts[route_id] = int(solving_attempts.get(route_id, 0)) + 1
+        n_attempts = solving_attempts[route_id]
+
+        answer_text = response.answer
+        escalated = bool(state.get("escalated_to_human", False))
+        if max_solving_attempts and n_attempts >= max_solving_attempts:
+            escalated = True
+            # Append handoff link only the first time we reach the threshold.
+            if n_attempts == max_solving_attempts:
+                tech = (route_cfg.get("whatsapp") or {}).get("tech")
+                if tech:
+                    answer_text += f"\n\nSi querés, te derivamos por WhatsApp: {tech}"
+
         # 4. Return the new assistant message (and any other state updates)
         return {
-            "messages": [AIMessage(content=response.answer)]
+            "messages": [AIMessage(content=answer_text)],
+            "solving_attempts": solving_attempts,
+            "escalated_to_human": escalated,
         }
 
     def enforce_limits(state: ChatState) -> ChatState:
