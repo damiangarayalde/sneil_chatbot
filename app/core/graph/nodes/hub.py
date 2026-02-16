@@ -54,9 +54,9 @@ max_attempts_before_handoff = int(
     or 0
 )
 
-route_lock_threshold = int(
+route_lock_threshold = float(
     classifier_cfg.get("route_lock_threshold")
-    or 0.0
+    or 0.7
 )
 
 
@@ -119,7 +119,9 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
     result = chain.invoke(fmt_kwargs)
 
     # high confidence => lock
-    if float(result.confidence) >= route_lock_threshold:
+    # Be conservative: if the model provides a clarifying question, treat it as low-confidence.
+    has_clarifier = bool((result.clarifying_question or "").strip())
+    if (not has_clarifier) and float(result.confidence) >= route_lock_threshold:
         return {
             "confidence": float(result.confidence),
             "estimated_route": result.estimated_route,
