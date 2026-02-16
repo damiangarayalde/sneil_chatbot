@@ -1,0 +1,417 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dev Route Subgraph</title>
+
+  <style>
+    :root{
+      --bg:#0b141a;
+      --panel:#111b21;
+      --header:#202c33;
+      --border: rgba(255,255,255,0.08);
+      --text:#e9edef;
+      --muted: rgba(233,237,239,0.75);
+
+      --bubbleMe:#005c4b;
+      --bubbleBot:#202c33;
+      --input:#e9edef;
+
+      --accent:#00a884;
+      --danger:#5a2a2a;
+      --dangerHover:#6a3333;
+    }
+
+    *{ box-sizing:border-box; }
+
+    body{
+      margin:0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      -webkit-text-size-adjust: 100%;
+      min-height: 100vh;
+      display:flex;
+      justify-content:center;
+    }
+
+    /* Phone-ish frame (but still good on desktop) */
+    .shell{
+      width: min(980px, 100%);
+      min-height: 100vh;
+      display:flex;
+      flex-direction:column;
+      background: var(--panel);
+    }
+
+    .header{
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      background: var(--header);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 12px;
+      display:flex;
+      gap: 12px;
+      align-items:center;
+      flex-wrap: wrap;
+    }
+
+    .titleBlock{
+      display:flex;
+      flex-direction:column;
+      gap:2px;
+      flex: 1 1 220px;
+      min-width: 180px;
+    }
+
+    .title{
+      font-weight: 650;
+      font-size: 14px;
+      line-height: 1.2;
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+
+    .pill{
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: rgba(0,168,132,0.15);
+      border: 1px solid rgba(0,168,132,0.35);
+      color: var(--text);
+      white-space: nowrap;
+    }
+
+    .subtitle{
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.2;
+    }
+
+    .controls{
+      display:flex;
+      gap: 8px;
+      align-items:center;
+      flex: 2 1 360px;
+      justify-content:flex-end;
+      flex-wrap: wrap;
+    }
+
+    .field{
+      display:flex;
+      gap: 8px;
+      align-items:center;
+      flex: 1 1 260px;
+      min-width: 200px;
+      justify-content:flex-end;
+    }
+
+    label{
+      font-size: 12px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    input[type="text"]{
+      width: min(360px, 100%);
+      background: rgba(0,0,0,0.18);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 10px 12px;
+      outline: none;
+      font-size: 16px; /* prevents iOS zoom-on-focus */
+    }
+
+    input::placeholder{ color: rgba(233,237,239,0.55); }
+
+    button{
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.06);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 10px 12px;
+      cursor:pointer;
+      white-space: nowrap;
+    }
+
+    button:hover{ background: rgba(255,255,255,0.10); }
+
+    #resetBtn{
+      background: rgba(90,42,42,0.55);
+    }
+    #resetBtn:hover{
+      background: rgba(106,51,51,0.75);
+    }
+
+    /* Chat background: subtle pattern vibe */
+    .chatWrap{
+      flex: 1 1 auto;
+      overflow: auto;
+      padding: 14px 12px;
+      background:
+        radial-gradient(circle at 20px 20px, rgba(255,255,255,0.03) 2px, transparent 2px) 0 0 / 44px 44px,
+        radial-gradient(circle at 10px 10px, rgba(0,168,132,0.02) 2px, transparent 2px) 0 0 / 60px 60px,
+        var(--panel);
+    }
+
+    /* WhatsApp-ish message rows */
+    .msgRow{
+      display:flex;
+      margin: 8px 0;
+      width: 100%;
+    }
+    .msgRow.me{
+      justify-content:flex-end;
+    }
+    .msgRow.bot{
+      justify-content:flex-start;
+    }
+
+    .bubble{
+      max-width: min(760px, 78%);
+      padding: 12px 14px;
+      border-radius: 14px;
+      position: relative;
+      line-height: 1.4;
+      font-size: 14px;
+      white-space: pre-wrap; /* preserves newlines */
+      word-break: break-word;
+      border: 1px solid rgba(255,255,255,0.06);
+      box-shadow: 0 1px 0 rgba(0,0,0,0.22);
+    }
+
+    .me .bubble{
+      background: var(--bubbleMe);
+      border-top-right-radius: 8px;
+    }
+    .bot .bubble{
+      background: var(--bubbleBot);
+      border-top-left-radius: 8px;
+    }
+
+    /* “Tail” effect */
+    .me .bubble::after{
+      content:"";
+      position:absolute;
+      right:-6px;
+      top: 0px;
+      width: 12px;
+      height: 12px;
+      background: var(--bubbleMe);
+      transform: rotate(45deg);
+      border-right: 1px solid rgba(255,255,255,0.06);
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+    .bot .bubble::after{
+      content:"";
+      position:absolute;
+      left:-6px;
+      top: 0px;
+      width: 12px;
+      height: 12px;
+      background: var(--bubbleBot);
+      transform: rotate(45deg);
+      border-left: 1px solid rgba(255,255,255,0.06);
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .time{
+      position: static;
+      display: block;
+      margin-top: 8px;      /* vertical space between text and time */
+      text-align: right;
+      font-size: 11px;
+      color: rgba(233,237,239,0.70);
+    }
+
+    /* Composer */
+    .composer{
+      border-top: 1px solid var(--border);
+      background: var(--header);
+      padding: 10px 10px;
+      display:flex;
+      gap: 10px;
+      align-items:center;
+      flex-wrap: wrap;
+    }
+
+    .composer input{
+      flex: 1 1 240px;
+      min-width: 180px;
+      background: rgba(0,0,0,0.18);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 12px 14px;
+      font-size: 16px; /* prevents iOS zoom-on-focus */
+    }
+
+    .sendBtn{
+      background: rgba(0,168,132,0.20);
+      border: 1px solid rgba(0,168,132,0.40);
+    }
+    .sendBtn:hover{
+      background: rgba(0,168,132,0.28);
+    }
+
+    /* Mobile adjustments */
+    @media (max-width: 560px){
+      .header{
+        padding: 10px;
+        gap: 10px;
+      }
+      .controls{
+        justify-content: stretch;
+      }
+      .field{
+        justify-content: stretch;
+        flex: 1 1 100%;
+      }
+      input[type="text"]{
+        width: 100%;
+      }
+      button{
+        width: 100%;
+      }
+      .bubble{
+        max-width: 86%;
+      }
+      .composer{
+        gap: 8px;
+      }
+      .composer input{
+        width: 100%;
+      }
+      .sendBtn{
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="shell">
+    <div class="header">
+      <div class="titleBlock">
+        <div class="title">
+          E-Neil Dev Chat
+          <span class="pill">Route: {{TEST_ROUTE}}</span>
+        </div>
+        <div class="subtitle">WhatsApp-style UI • history via thread_id • /reset clears state + messages</div>
+      </div>
+
+      <div class="controls">
+        <div class="field">
+          <label for="thread">thread_id</label>
+          <input id="thread" type="text" autocomplete="off" placeholder="+54911..." />
+        </div>
+        <button id="resetBtn" type="button">Reset chat</button>
+      </div>
+    </div>
+
+    <div id="chat" class="chatWrap"></div>
+
+    <form id="form" class="composer">
+      <input id="msg" autocomplete="off" placeholder="Type a message..." />
+      <button class="sendBtn" type="submit">Send</button>
+    </form>
+  </div>
+
+  <script>
+    const chat = document.getElementById("chat");
+    const form = document.getElementById("form");
+    const msg = document.getElementById("msg");
+    const thread = document.getElementById("thread");
+    const resetBtn = document.getElementById("resetBtn");
+
+    function nowHHMM(){
+      const d = new Date();
+      return d.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+    }
+
+    function addBubble(side, text){
+      const row = document.createElement("div");
+      row.className = "msgRow " + (side === "me" ? "me" : "bot");
+
+      const bubble = document.createElement("div");
+      bubble.className = "bubble";
+      bubble.textContent = text;
+
+      const time = document.createElement("div");
+      time.className = "time";
+      time.textContent = nowHHMM();
+
+      bubble.appendChild(time);
+      row.appendChild(bubble);
+      chat.appendChild(row);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function getThreadId(){
+      const v = (thread.value || "").trim();
+      return v || "dev-thread";
+    }
+
+    function persistThreadId(){
+      try { localStorage.setItem("dev_thread_id", (thread.value || "").trim()); } catch(e){}
+    }
+
+    (function init(){
+      try{
+        const saved = localStorage.getItem("dev_thread_id");
+        if (saved && !thread.value) thread.value = saved;
+      }catch(e){}
+      msg.focus();
+    })();
+
+    thread.addEventListener("change", persistThreadId);
+    thread.addEventListener("blur", persistThreadId);
+
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      const text = (msg.value || "").trim();
+      if (!text) return;
+
+      persistThreadId();
+      addBubble("me", text);
+      msg.value = "";
+      msg.focus();
+
+      const payload = { text, thread_id: getThreadId() };
+      const r = await fetch("/chat", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify(payload)
+      });
+
+      const j = await r.json();
+      addBubble("bot", j.answer || JSON.stringify(j));
+    };
+
+    resetBtn.onclick = async () => {
+      persistThreadId();
+
+      const payload = { thread_id: getThreadId() };
+      const r = await fetch("/reset", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify(payload)
+      });
+
+      if (!r.ok){
+        let j = {};
+        try { j = await r.json(); } catch(e){}
+        addBubble("bot", "Reset failed: " + (j.detail || r.status));
+        return;
+      }
+
+      chat.innerHTML = "";
+      addBubble("bot", "Chat reset for this thread_id.");
+      msg.focus();
+    };
+  </script>
+</body>
+</html>
