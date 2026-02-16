@@ -57,10 +57,8 @@ async def chat(req: Request):
 
     input_data = {
         "locked_route": TEST_ROUTE,
-        "attempts": 1,
         "messages": [HumanMessage(content=text)],
     }
-
     output = graph.invoke(input_data, config=config)
     answer = extract_assistant_text(output) or "(no assistant output)"
     return {"answer": answer}
