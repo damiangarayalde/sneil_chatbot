@@ -1,5 +1,7 @@
 import os
-import uuid
+from pathlib import Path
+from typing import Any, Optional
+
 from dotenv import load_dotenv
 
 import uvicorn
@@ -7,155 +9,92 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse
 
 from langchain_core.messages import HumanMessage, AIMessage
+from langgraph.graph import StateGraph, START, END
 
-from app.core.graph.build import build_graph
+from app.core.graph.state import ChatState
+from app.core.graph.nodes.route_subgraph import make_route_subgraph
+from app.core.graph.flow_logging import wrap_node
+from app.core.utils import get_routes
+from app.core.persistence import get_sqlite_checkpointer
 
-TEST_KEY = os.getenv("TEST_KEY", "")  # optional shared secret
 
+"""
+Dev API for quickly testing a single route-subgraph with a WhatsApp-style UI.
 
-# --- Same init pattern as cli.py ---
+This file mirrors the approach in api_test_route_subgraph.py, but uses an
+outsourced HTML file (chatbot_ui_mockup.html) that is loaded from disk at runtime.
+"""
+
 load_dotenv()
-graph = build_graph()
-# ----------------------------------
 
+TEST_KEY = os.getenv("TEST_KEY", "")
+TEST_ROUTE = os.getenv("TEST_ROUTE", "TPMS").strip() or "TPMS"
+
+ROUTES = set(get_routes())
+if TEST_ROUTE not in ROUTES:
+    raise RuntimeError(
+        f"Invalid TEST_ROUTE={TEST_ROUTE!r}. Valid routes: {sorted(ROUTES)}")
+
+CHECKPOINTER = get_sqlite_checkpointer()
+
+
+def build_route_only_graph(route_id: str, checkpointer: Optional[Any] = None):
+    subgraph = make_route_subgraph(route_id)
+
+    g = StateGraph(ChatState)
+    node_name = f"handle__{route_id}"
+    g.add_node(node_name, wrap_node(node_name, subgraph))
+
+    g.add_edge(START, node_name)
+    g.add_edge(node_name, END)
+
+    if checkpointer is not None:
+        return g.compile(checkpointer=checkpointer)
+    return g.compile()
+
+
+graph = build_route_only_graph(TEST_ROUTE, checkpointer=CHECKPOINTER)
 
 app = FastAPI()
 
-PAGE = """
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Dev Chat</title>
-  <style>
-    :root {
-      --bg: #000000;         /* app background */
-      --panel: #1f1f1f;      /* chat window */
-      --input: #2a2a2a;      /* free text input */
-      --border: #3a3a3a;
-      --text: #eaeaea;
-      --muted: #bdbdbd;
-      --btn: #333333;
-      --btnHover: #444444;
-    }
 
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji","Segoe UI Emoji";
-      max-width: 820px;
-      margin: 40px auto;
-      padding: 0 16px;
-    }
+# ---- HTML loading (outsourced UI) ----
+_THIS_DIR = Path(__file__).resolve().parent
+_HTML_PATH = _THIS_DIR / "chatbot_ui_mockup.html"
 
-    h2 { margin: 0 0 14px; font-weight: 650; }
 
-    #log {
-      white-space: pre-wrap;
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 14px;
-      height: 460px;
-      overflow: auto;
-      box-shadow: 0 0 0 1px rgba(255,255,255,0.02) inset;
-    }
-
-    #f {
-      margin-top: 12px;
-      display: flex;
-      gap: 10px;
-    }
-
-    #m {
-      flex: 1;
-      background: var(--input);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 12px 12px;
-      color: var(--text);
-      outline: none;
-    }
-    #m::placeholder { color: var(--muted); }
-
-    button {
-      background: var(--btn);
-      color: var(--text);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 12px 14px;
-      cursor: pointer;
-    }
-    button:hover { background: var(--btnHover); }
-  </style>
-</head>
-
-<body>
-  <h2>E-Neil Test Chat</h2>
-
-  <div id="log"></div>
-
-  <form id="f">
-    <input id="m" autocomplete="off" placeholder="Type a message..." />
-    <button>Send</button>
-  </form>
-
-<script>
-const log = document.getElementById("log");
-const f = document.getElementById("f");
-const m = document.getElementById("m");
-
-let thread_id = localStorage.getItem("thread_id");
-if (!thread_id) {
-  thread_id = crypto.randomUUID();
-  localStorage.setItem("thread_id", thread_id);
-}
-
-function addLine(who, text){
-  log.textContent += `\\n${who}: ${text}\\n`;
-  log.scrollTop = log.scrollHeight;
-}
-
-f.onsubmit = async (e) => {
-  e.preventDefault();
-  const text = m.value.trim();
-  if (!text) return;
-
-  addLine("You", text);
-  m.value = "";
-
-  const body = { thread_id, text };
-
-  // If you set TEST_KEY on the server, uncomment:
-  // body.key = "mysharedsecret";
-
-  const r = await fetch("/chat", {
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body: JSON.stringify(body)
-  });
-
-  const j = await r.json();
-  addLine("E-Neil", j.answer || JSON.stringify(j));
-};
-</script>
-</body>
-</html>
-"""
+def render_page() -> str:
+    """
+    Load and return the HTML UI.
+    Uses simple placeholder replacement (no f-strings, no brace escaping issues).
+    """
+    if not _HTML_PATH.exists():
+        return (
+            "<h2>Missing UI file</h2>"
+            f"<p>Expected to find: <code>{_HTML_PATH}</code></p>"
+            "<p>Copy <code>chatbot_ui_mockup.html</code> next to <code>dev_api.py</code>.</p>"
+        )
+    html = _HTML_PATH.read_text(encoding="utf-8")
+    return html.replace("{{TEST_ROUTE}}", TEST_ROUTE)
+# -------------------------------------
 
 
 @app.get("/", response_class=HTMLResponse)
 def home():
-    return PAGE
+    return HTMLResponse(render_page())
 
 
 def extract_assistant_text(output: dict) -> str:
+    """
+    Collect all AI messages produced after the latest HumanMessage in the
+    returned state (helps when the graph emits multiple AI messages per turn).
+    """
     msgs = output.get("messages") or []
 
     last_human_idx = next(
         (i for i in range(len(msgs) - 1, -1, -1)
          if isinstance(msgs[i], HumanMessage)),
-        None
+        None,
     )
     start = (last_human_idx + 1) if last_human_idx is not None else 0
     ai_after = [m for m in msgs[start:] if isinstance(m, AIMessage)]
@@ -169,24 +108,82 @@ def extract_assistant_text(output: dict) -> str:
     return "\n\n".join(parts).strip()
 
 
+def _make_config(thread_id: str) -> dict:
+    return {"configurable": {"thread_id": thread_id}}
+
+
+def _reset_thread_state(thread_id: str) -> None:
+    """
+    Clears persisted state for this thread (messages + attempts) so the UI's
+    /reset button is a true "fresh chat" for the same thread_id.
+    """
+    config = _make_config(thread_id)
+    clean_state = {
+        "messages": [],
+        "locked_route": TEST_ROUTE,
+        "attempts": 0,
+    }
+
+    if hasattr(graph, "update_state"):
+        try:
+            graph.update_state(config, clean_state)  # type: ignore
+            return
+        except TypeError:
+            # Some langgraph versions require as_node=START
+            graph.update_state(config, clean_state,
+                               as_node=START)  # type: ignore
+            return
+
+
 @app.post("/chat")
 async def chat(req: Request):
     payload = await req.json()
-    thread_id = payload.get("thread_id") or str(uuid.uuid4())
+
+    # Optional shared secret for local exposure (ngrok, etc.)
+    if TEST_KEY and payload.get("key") != TEST_KEY:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
     text = (payload.get("text") or "").strip()
+    thread_id = (payload.get("thread_id") or "").strip() or "dev-thread"
+
+    if not text:
+        raise HTTPException(status_code=400, detail="Missing 'text'")
+
+    config = _make_config(thread_id)
+
+    # This dev UI is meant to test ONE route, so we keep locked_route fixed.
+    input_data = {
+        "locked_route": TEST_ROUTE,
+        "attempts": 1,
+        "messages": [HumanMessage(content=text)],
+    }
+
+    output = graph.invoke(input_data, config=config)
+    answer = extract_assistant_text(output) or "(no assistant output)"
+    return {"answer": answer}
+
+
+@app.post("/reset")
+async def reset(req: Request):
+    payload = await req.json()
 
     if TEST_KEY and payload.get("key") != TEST_KEY:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-    config = {"configurable": {"thread_id": thread_id}}
-    input_data = {"messages": [HumanMessage(content=text)]}
-    output = graph.invoke(input_data, config=config)
-
-    answer = extract_assistant_text(output) or "(no assistant output)"
-    return {"thread_id": thread_id, "answer": answer}
+    thread_id = (payload.get("thread_id") or "").strip() or "dev-thread"
+    _reset_thread_state(thread_id)
+    return {"ok": True}
 
 
 def main():
-    # Console entry point: sneil-chatbot-api
-    uvicorn.run("app.interfaces.dev_api:app",
-                host="127.0.0.1", port=8000, reload=True)
+    # Update module path if this file lives elsewhere in your repo.
+    uvicorn.run(
+        "app.interfaces.dev_api:app",
+        host="127.0.0.1",
+        port=int(os.getenv("PORT", "8000")),
+        reload=True,
+    )
+
+
+if __name__ == "__main__":
+    main()
