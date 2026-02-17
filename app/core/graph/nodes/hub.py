@@ -104,7 +104,7 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
     if is_low_info(last_message):
         return {
             "confidence": 0.0,
-            "attempts": attempts + 1,
+            "attempts": attempts,  # low info doesnt count as attempt
             "messages": [AIMessage(content=default_clarifier())],
         }
 

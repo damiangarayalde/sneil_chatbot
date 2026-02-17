@@ -24,7 +24,7 @@ from app.core.graph.nodes.hub import node__classify_user_intent
 #   turns: list[turn]
 #
 # turn:
-#   user: str
+#   user_msg: str
 #   expect: expect | {"one_of": [expect, ...]} (optional)
 #
 # expect:
@@ -131,32 +131,43 @@ def run_scenario(s: Scenario) -> Dict[str, Any]:
     state.update((s.get("setup") or {}).get("initial_state") or {})
 
     print("\n" + "=" * 90)
-    print(f"{s.get('id')} — {s.get('title')}")
-    tags = s.get("tags") or []
-    if tags:
-        print("tags:", ", ".join(tags))
+    print(f"{s.get('id')}: {s.get('title')}")
+    # tags = s.get("tags") or []
+    # if tags:
+    #     print("tags:", ", ".join(tags))
+    # print("\n" + "." * 90)
+
+    for k in sorted(state.keys()):
+        print(f" _initial_ state.{k}: {state[k]}")
 
     for i, turn in enumerate(s.get("turns") or [], start=1):
-        user_text = turn["user"]
+        user_msg_text = turn["user_msg"]
         state.setdefault("messages", []).append(
-            HumanMessage(content=user_text))
+            HumanMessage(content=user_msg_text))
 
         patch = node__classify_user_intent(state) or {}
         state = _apply_patch(state, patch)
 
         last_ai = _last_ai_message(state.get("messages") or [])
 
-        print("\n" + "-" * 90)
-        print(f"Turn {i}")
-        print("- user:", repr(user_text))
-        print("- patch keys:", sorted(list(patch.keys())) if patch else [])
-        print("- state.locked_route:", state.get("locked_route"))
-        print("- state.estimated_route:", state.get("estimated_route"))
-        print("- state.escalated_to_human:", state.get("escalated_to_human"))
-        print("- state.attempts:", state.get("attempts"))
-        print("- state.confidence:", state.get("confidence"))
+        print("\n " + "." * 90)
+        print(f" Turn {i}:")
+        print("\n _input__ User:", repr(user_msg_text))
+        print("\n" + "." * 90)
+        # print("Outputs:")
+        locked_route = state.get("locked_route")
+
+        if locked_route:
+            print(" _output_ state.locked_route:", locked_route)
+        else:
+            print(
+                f" _output_ state.estimated_route: {state.get("estimated_route")}, \t confidence: {state.get("confidence")} ")
+        print(" _output_ state.attempts:", state.get("attempts"))
+        print(" _output_ state.escalated_to_human:",
+              state.get("escalated_to_human"))
+        # print("\n " + "." * 90)
         if last_ai:
-            print("- assistant:", last_ai)
+            print("\n _output_ Assistant:", last_ai)
 
         exp = turn.get("expect")
         if not exp:
@@ -175,23 +186,25 @@ def run_scenario(s: Scenario) -> Dict[str, Any]:
         else:
             _assert_expect(state, exp)
 
+        print("\n \n")  # create extra space
+
     return state
 
 
 SCENARIOS: List[Scenario] = [
     {
-        "id": "hub_001_low_info_greeting",
+        "id": "Scenario_1",
         "title": "Low info greeting -> default clarifier (no LLM)",
         "tags": ["triage", "heuristic", "no_llm"],
         "setup": {"initial_state": {"attempts": 0}},
         "turns": [
             {
-                "user": "hola",
+                "user_msg": "hola",
                 "expect": {
                     "action": "ask_clarifier",
                     "state": {
                         "locked_route": None,
-                        "attempts": 1,
+                        "attempts": 0,
                         "confidence_min": 0.0,
                         "confidence_max": 0.0,
                     },
@@ -200,13 +213,13 @@ SCENARIOS: List[Scenario] = [
         ],
     },
     {
-        "id": "hub_002_human_request",
+        "id": "Scenario_2",
         "title": "Explicit human request -> escalation (no LLM)",
         "tags": ["escalation", "heuristic", "no_llm"],
         "setup": {"initial_state": {"attempts": 0}},
         "turns": [
             {
-                "user": "quiero hablar con un humano",
+                "user_msg": "quiero hablar con un humano",
                 "expect": {
                     "action": "escalate",
                     "state": {"locked_route": None, "escalated_to_human": True, "attempts": 0},
@@ -215,13 +228,13 @@ SCENARIOS: List[Scenario] = [
         ],
     },
     {
-        "id": "hub_003_direct_lock_from_keywords",
+        "id": "Scenario_3",
         "title": "Support + route mention -> direct lock (no LLM)",
         "tags": ["routing", "heuristic", "no_llm", "tpms"],
         "setup": {"initial_state": {"attempts": 0}},
         "turns": [
             {
-                "user": "soporte tpms, no conecta el sensor",
+                "user_msg": "soporte tpms, no conecta el sensor",
                 "expect": {
                     "action": "lock_route",
                     "state": {"locked_route": "TPMS", "estimated_route": "TPMS", "attempts": 0},
@@ -230,14 +243,14 @@ SCENARIOS: List[Scenario] = [
         ],
     },
     {
-        "id": "hub_004_escalate_after_max_attempts",
+        "id": "Scenario_4",
         "title": "Attempts >= max_attempts_before_handoff -> escalation (no LLM)",
         "tags": ["escalation", "heuristic", "no_llm"],
         # NOTE: assumes your hub config sets max_attempts_before_handoff <= 3
         "setup": {"initial_state": {"attempts": 3}},
         "turns": [
             {
-                "user": "ok",
+                "user_msg": "ok",
                 "expect": {
                     "action": "escalate",
                     "state": {"escalated_to_human": True, "attempts": 0},
@@ -246,13 +259,13 @@ SCENARIOS: List[Scenario] = [
         ],
     },
     {
-        "id": "hub_005_llm_aa_issue",
-        "title": "LLM needed: normal AA issue (prefer lock AA)",
+        "id": "Scenario_5",
+        "title": "LLM needed: Should route to AA ",
         "tags": ["llm", "aa"],
         "setup": {"initial_state": {"attempts": 0}},
         "turns": [
             {
-                "user": "Mi aire acondicionado no enfría y hace ruido.",
+                "user_msg": "Mi aire acondicionado no enfría y hace ruido.",
                 "expect": {
                     "one_of": [
                         {"action": "lock_route", "state": {"locked_route": "AA"}},
@@ -264,13 +277,13 @@ SCENARIOS: List[Scenario] = [
         ],
     },
     {
-        "id": "hub_006_llm_ambiguous_message",
+        "id": "Scenario_6",
         "title": "LLM needed: ambiguous message (should ask a clarifier, not lock)",
         "tags": ["llm", "ambiguous"],
         "setup": {"initial_state": {"attempts": 0}},
         "turns": [
             {
-                "user": "Tengo una consulta sobre un producto.",
+                "user_msg": "Tengo una consulta sobre un producto.",
                 "expect": {
                     "action": "ask_clarifier",
                     "state": {"locked_route": None, "attempts": 1},
