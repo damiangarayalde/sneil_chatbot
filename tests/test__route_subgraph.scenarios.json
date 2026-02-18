@@ -1,0 +1,108 @@
+// Smoke tests for route_subgraph behavior (REAL LLM + optional RAG).
+// Run:
+//   python scripts/route_subgraph__smoke_test.py
+// What this validates (based on your spec): 1) At the start of the route handler: if solve_attempts >= max_solve_attempts:
+//   - Send apology + recommend human support
+//   - Reset solve_attempts
+// 2) If solve_attempts == 0:
+//   A) If user message is vague (no clear problem): ask a clarifying question
+//       - Do NOT call RAG
+//       - Do NOT increment solve_attempts
+//   B) If user message contains the problem: call RAG + answer + ask for confirmation
+//       - Increment solve_attempts (+1)
+//       - Asks for confirmation must be a separate assistant message
+// 3) If 0 < solve_attempts < max_solve_attempts:
+//   - Always run (B)
+[
+  {
+    "id": "Scenario__1",
+    "title": "attempts >= max -> apology + recommend human + reset attempts",
+    "route_id": "TPMS",
+    "setup": {
+      "initial_state": {
+        "attempts": "__MAX__"
+      }
+    },
+    "turns": [
+      {
+        "user_msg": "No me funciona y ya probé de todo.",
+        "expect": {
+          "action": "escalate",
+          "state": {
+            "locked_route": "TPMS",
+            "escalated_to_human": true,
+            "attempts": 0
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "Scenario__2A",
+    "title": "first attempt (0), vague -> clarifying question, no RAG, no increment",
+    "route_id": "TPMS",
+    "setup": {
+      "initial_state": {
+        "attempts": 0
+      }
+    },
+    "turns": [
+      {
+        "user_msg": "Necesito ayuda con TPMS",
+        "expect": {
+          "action": "ask_clarifier",
+          "state": {
+            "locked_route": "TPMS",
+            "attempts": 0,
+            "rag_ran": false,
+            "added_ai": 1
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "Scenario__2B",
+    "title": "first attempt (0), problem -> answer + confirmation, attempts +1",
+    "route_id": "TPMS",
+    "setup": {
+      "initial_state": {
+        "attempts": 0
+      }
+    },
+    "turns": [
+      {
+        "user_msg": "El TPMS no conecta el sensor y me marca error.",
+        "expect": {
+          "state": {
+            "locked_route": "TPMS",
+            "attempts": 1,
+            "added_ai": 2
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "Scenario__3",
+    "title": "attempts=1 (<max) -> answer + confirmation, attempts becomes 2",
+    "route_id": "TPMS",
+    "setup": {
+      "initial_state": {
+        "attempts": 1
+      }
+    },
+    "turns": [
+      {
+        "user_msg": "Sigue sin conectar. Ya reinicié y cambié la pila del sensor.",
+        "expect": {
+          "state": {
+            "locked_route": "TPMS",
+            "attempts": 2,
+            "added_ai": 2
+          }
+        }
+      }
+    ]
+  }
+]
