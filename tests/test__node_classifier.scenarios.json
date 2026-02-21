@@ -167,5 +167,67 @@
         }
       }
     ]
+  },
+  {
+    "id": "Scenario_7",
+    "title": "Locked route already AA -> classifier should skip (pass-through)",
+    "tags": [
+      "locked_route",
+      "aa",
+      "no_op"
+    ],
+    "setup": {
+      "initial_state": {
+        "locked_route": "AA",
+        "estimated_route": "AA",
+        "confidence": 0.9,
+        "attempts": 2
+      }
+    },
+    "turns": [
+      {
+        "user_msg": "cualquier cosa (deberia ignorarse porque ya está lockeado)",
+        "expect": {
+          "action": "noop",
+          "state": {
+            "locked_route": "AA",
+            "estimated_route": "AA",
+            "confidence": 0.9,
+            "attempts": 2
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "Scenario_8",
+    "title": "Locked route already TPMS -> classifier should skip (pass-through)",
+    "tags": [
+      "locked_route",
+      "tpms",
+      "no_op"
+    ],
+    "setup": {
+      "initial_state": {
+        "locked_route": "TPMS",
+        "estimated_route": "TPMS",
+        "confidence": 0.9,
+        "attempts": 1
+      }
+    },
+    "turns": [
+      {
+        "user_msg": "cualquier cosa (deberia ignorarse porque ya está lockeado)",
+        "expect": {
+          "action": "noop",
+          "state": {
+            "locked_route": "TPMS",
+            "estimated_route": "TPMS",
+            "confidence": 0.9,
+            "attempts": 1
+          }
+        }
+      }
+    ]
   }
 ]
