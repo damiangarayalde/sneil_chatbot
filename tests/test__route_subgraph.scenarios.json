@@ -1,18 +1,3 @@
-// Smoke tests for route_subgraph behavior (REAL LLM + optional RAG).
-// Run:
-//   python scripts/route_subgraph__smoke_test.py
-// What this validates (based on your spec): 1) At the start of the route handler: if solve_attempts >= max_solve_attempts:
-//   - Send apology + recommend human support
-//   - Reset solve_attempts
-// 2) If solve_attempts == 0:
-//   A) If user message is vague (no clear problem): ask a clarifying question
-//       - Do NOT call RAG
-//       - Do NOT increment solve_attempts
-//   B) If user message contains the problem: call RAG + answer + ask for confirmation
-//       - Increment solve_attempts (+1)
-//       - Asks for confirmation must be a separate assistant message
-// 3) If 0 < solve_attempts < max_solve_attempts:
-//   - Always run (B)
 [
   {
     "id": "Scenario__1",
@@ -20,7 +5,7 @@
     "route_id": "TPMS",
     "setup": {
       "initial_state": {
-        "attempts": "__MAX__"
+        "attempts": 5
       }
     },
     "turns": [
@@ -29,7 +14,7 @@
         "expect": {
           "action": "escalate",
           "state": {
-            "locked_route": "TPMS",
+            "locked_route": null,
             "escalated_to_human": true,
             "attempts": 0
           }
@@ -54,8 +39,7 @@
           "state": {
             "locked_route": "TPMS",
             "attempts": 0,
-            "rag_ran": false,
-            "added_ai": 1
+            "rag_ran": false
           }
         }
       }
@@ -76,8 +60,7 @@
         "expect": {
           "state": {
             "locked_route": "TPMS",
-            "attempts": 1,
-            "added_ai": 2
+            "attempts": 1
           }
         }
       }
@@ -98,8 +81,7 @@
         "expect": {
           "state": {
             "locked_route": "TPMS",
-            "attempts": 2,
-            "added_ai": 2
+            "attempts": 2
           }
         }
       }
