@@ -120,7 +120,7 @@ def run_scenario(node_fn: NodeFn, s: Scenario) -> Dict[str, Any]:
 
     print("\n" + "=" * 90)
     print(f"{s.get('id')}: {s.get('title')}")
-    print("\n")
+    print()
     for k in sorted(state.keys()):
         print(f" _initial_ state.{k}: {state[k]}")
 
