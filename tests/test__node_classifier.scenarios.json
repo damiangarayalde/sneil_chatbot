@@ -1,233 +1,236 @@
-[
-  {
-    "id": "Scenario_1",
-    "title": "Low info greeting -> default clarifier (no LLM)",
-    "tags": [
-      "triage",
-      "heuristic",
-      "no_llm"
-    ],
-    "setup": {
-      "initial_state": {
-        "attempts": 0
-      }
-    },
-    "turns": [
-      {
-        "user_msg": "hola",
-        "expect": {
-          "action": "ask_clarifier",
-          "state": {
-            "locked_route": null,
-            "attempts": 0,
-            "confidence_min": 0.0,
-            "confidence_max": 0.0
-          }
+{
+  "node_ref": "app.core.graph.nodes.hub:node__classify_user_intent",
+  "scenarios": [
+    {
+      "id": "Scenario_1",
+      "title": "Low info greeting -> default clarifier (no LLM)",
+      "tags": [
+        "triage",
+        "heuristic",
+        "no_llm"
+      ],
+      "setup": {
+        "initial_state": {
+          "attempts": 0
         }
-      }
-    ]
-  },
-  {
-    "id": "Scenario_2",
-    "title": "Explicit human request -> escalation (no LLM)",
-    "tags": [
-      "escalation",
-      "heuristic",
-      "no_llm"
-    ],
-    "setup": {
-      "initial_state": {
-        "attempts": 0
-      }
-    },
-    "turns": [
-      {
-        "user_msg": "quiero hablar con un humano",
-        "expect": {
-          "action": "escalate",
-          "state": {
-            "locked_route": null,
-            "escalated_to_human": true,
-            "attempts": 0
-          }
-        }
-      }
-    ]
-  },
-  {
-    "id": "Scenario_3",
-    "title": "Support + route mention -> direct lock (no LLM)",
-    "tags": [
-      "routing",
-      "heuristic",
-      "no_llm",
-      "tpms"
-    ],
-    "setup": {
-      "initial_state": {
-        "attempts": 0
-      }
-    },
-    "turns": [
-      {
-        "user_msg": "soporte tpms, no conecta el sensor",
-        "expect": {
-          "action": "lock_route",
-          "state": {
-            "locked_route": "TPMS",
-            "estimated_route": "TPMS",
-            "attempts": 0
-          }
-        }
-      }
-    ]
-  },
-  {
-    "id": "Scenario_4",
-    "title": "Attempts >= max_attempts_before_handoff -> escalation (no LLM)",
-    "tags": [
-      "escalation",
-      "heuristic",
-      "no_llm"
-    ],
-    "setup": {
-      "initial_state": {
-        "attempts": 4
-      }
-    },
-    "turns": [
-      {
-        "user_msg": "ok",
-        "expect": {
-          "action": "escalate",
-          "state": {
-            "escalated_to_human": true,
-            "attempts": 0
-          }
-        }
-      }
-    ]
-  },
-  {
-    "id": "Scenario_5",
-    "title": "LLM needed: Should route to AA",
-    "tags": [
-      "llm",
-      "aa"
-    ],
-    "setup": {
-      "initial_state": {
-        "attempts": 0
-      }
-    },
-    "turns": [
-      {
-        "user_msg": "Mi aire acondicionado no enfría y hace ruido.",
-        "expect": {
-          "one_of": [
-            {
-              "action": "lock_route",
-              "state": {
-                "locked_route": "AA"
-              }
-            },
-            {
-              "action": "ask_clarifier",
-              "state": {
-                "locked_route": null,
-                "estimated_route": "AA"
-              }
+      },
+      "turns": [
+        {
+          "user_msg": "hola",
+          "expect": {
+            "action": "ask_clarifier",
+            "state": {
+              "locked_route": null,
+              "attempts": 0,
+              "confidence_min": 0.0,
+              "confidence_max": 0.0
             }
-          ]
-        }
-      }
-    ]
-  },
-  {
-    "id": "Scenario_6",
-    "title": "LLM needed: ambiguous message (should ask a clarifier, not lock)",
-    "tags": [
-      "llm",
-      "ambiguous"
-    ],
-    "setup": {
-      "initial_state": {
-        "attempts": 0
-      }
-    },
-    "turns": [
-      {
-        "user_msg": "Tengo una consulta sobre un producto.",
-        "expect": {
-          "action": "ask_clarifier",
-          "state": {
-            "locked_route": null,
-            "attempts": 1
           }
         }
-      }
-    ]
-  },
-  {
-    "id": "Scenario_7",
-    "title": "Locked route already AA -> classifier should skip (pass-through)",
-    "tags": [
-      "locked_route",
-      "aa",
-      "no_op"
-    ],
-    "setup": {
-      "initial_state": {
-        "locked_route": "AA",
-        "estimated_route": "AA",
-        "confidence": 0.9,
-        "attempts": 2
-      }
+      ]
     },
-    "turns": [
-      {
-        "user_msg": "cualquier cosa (deberia ignorarse porque ya está lockeado)",
-        "expect": {
-          "action": "noop",
-          "state": {
-            "locked_route": "AA",
-            "estimated_route": "AA",
-            "confidence": 0.9,
-            "attempts": 2
+    {
+      "id": "Scenario_2",
+      "title": "Explicit human request -> escalation (no LLM)",
+      "tags": [
+        "escalation",
+        "heuristic",
+        "no_llm"
+      ],
+      "setup": {
+        "initial_state": {
+          "attempts": 0
+        }
+      },
+      "turns": [
+        {
+          "user_msg": "quiero hablar con un humano",
+          "expect": {
+            "action": "escalate",
+            "state": {
+              "locked_route": null,
+              "escalated_to_human": true,
+              "attempts": 0
+            }
           }
         }
-      }
-    ]
-  },
-  {
-    "id": "Scenario_8",
-    "title": "Locked route already TPMS -> classifier should skip (pass-through)",
-    "tags": [
-      "locked_route",
-      "tpms",
-      "no_op"
-    ],
-    "setup": {
-      "initial_state": {
-        "locked_route": "TPMS",
-        "estimated_route": "TPMS",
-        "confidence": 0.9,
-        "attempts": 1
-      }
+      ]
     },
-    "turns": [
-      {
-        "user_msg": "cualquier cosa (deberia ignorarse porque ya está lockeado)",
-        "expect": {
-          "action": "noop",
-          "state": {
-            "locked_route": "TPMS",
-            "estimated_route": "TPMS",
-            "confidence": 0.9,
-            "attempts": 1
+    {
+      "id": "Scenario_3",
+      "title": "Support + route mention -> direct lock (no LLM)",
+      "tags": [
+        "routing",
+        "heuristic",
+        "no_llm",
+        "tpms"
+      ],
+      "setup": {
+        "initial_state": {
+          "attempts": 0
+        }
+      },
+      "turns": [
+        {
+          "user_msg": "soporte tpms, no conecta el sensor",
+          "expect": {
+            "action": "lock_route",
+            "state": {
+              "locked_route": "TPMS",
+              "estimated_route": "TPMS",
+              "attempts": 0
+            }
           }
         }
-      }
-    ]
-  }
-]
+      ]
+    },
+    {
+      "id": "Scenario_4",
+      "title": "Attempts >= max_attempts_before_handoff -> escalation (no LLM)",
+      "tags": [
+        "escalation",
+        "heuristic",
+        "no_llm"
+      ],
+      "setup": {
+        "initial_state": {
+          "attempts": 4
+        }
+      },
+      "turns": [
+        {
+          "user_msg": "ok",
+          "expect": {
+            "action": "escalate",
+            "state": {
+              "escalated_to_human": true,
+              "attempts": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "Scenario_5",
+      "title": "LLM needed: Should route to AA",
+      "tags": [
+        "llm",
+        "aa"
+      ],
+      "setup": {
+        "initial_state": {
+          "attempts": 0
+        }
+      },
+      "turns": [
+        {
+          "user_msg": "Mi aire acondicionado no enfría y hace ruido.",
+          "expect": {
+            "one_of": [
+              {
+                "action": "lock_route",
+                "state": {
+                  "locked_route": "AA"
+                }
+              },
+              {
+                "action": "ask_clarifier",
+                "state": {
+                  "locked_route": null,
+                  "estimated_route": "AA"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "Scenario_6",
+      "title": "LLM needed: ambiguous message (should ask a clarifier, not lock)",
+      "tags": [
+        "llm",
+        "ambiguous"
+      ],
+      "setup": {
+        "initial_state": {
+          "attempts": 0
+        }
+      },
+      "turns": [
+        {
+          "user_msg": "Tengo una consulta sobre un producto.",
+          "expect": {
+            "action": "ask_clarifier",
+            "state": {
+              "locked_route": null,
+              "attempts": 1
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "Scenario_7",
+      "title": "Locked route already AA -> classifier should skip (pass-through)",
+      "tags": [
+        "locked_route",
+        "aa",
+        "no_op"
+      ],
+      "setup": {
+        "initial_state": {
+          "locked_route": "AA",
+          "estimated_route": "AA",
+          "confidence": 0.9,
+          "attempts": 2
+        }
+      },
+      "turns": [
+        {
+          "user_msg": "cualquier cosa (deberia ignorarse porque ya está lockeado)",
+          "expect": {
+            "action": "noop",
+            "state": {
+              "locked_route": "AA",
+              "estimated_route": "AA",
+              "confidence": 0.9,
+              "attempts": 2
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "Scenario_8",
+      "title": "Locked route already TPMS -> classifier should skip (pass-through)",
+      "tags": [
+        "locked_route",
+        "tpms",
+        "no_op"
+      ],
+      "setup": {
+        "initial_state": {
+          "locked_route": "TPMS",
+          "estimated_route": "TPMS",
+          "confidence": 0.9,
+          "attempts": 1
+        }
+      },
+      "turns": [
+        {
+          "user_msg": "cualquier cosa (deberia ignorarse porque ya está lockeado)",
+          "expect": {
+            "action": "noop",
+            "state": {
+              "locked_route": "TPMS",
+              "estimated_route": "TPMS",
+              "confidence": 0.9,
+              "attempts": 1
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
