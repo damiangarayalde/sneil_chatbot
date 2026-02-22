@@ -1,0 +1,49 @@
+{
+    "node_ref": "app.core.graph.nodes.route_subgraph:node__route_handoff",
+    "scenarios": [
+        {
+            "id": "handoff_1",
+            "title": "Handoff resets attempts, clears lock, marks escalated",
+            "tags": [
+                "route_subgraph",
+                "handoff",
+                "no_llm",
+                "deterministic"
+            ],
+            "setup": {
+                "route_id": "TPMS",
+                "initial_state": {
+                    "attempts": 3,
+                    "locked_route": "TPMS",
+                    "confidence": 0.8,
+                    "retrieved": [
+                        {
+                            "page_content": "x"
+                        }
+                    ]
+                }
+            },
+            "turns": [
+                {
+                    "user_msg": "ok",
+                    "expect": {
+                        "action": "escalate",
+                        "state": {
+                            "attempts": 0,
+                            "escalated_to_human": true,
+                            "locked_route": null,
+                            "confidence": 0,
+                            "retrieved": null
+                        },
+                        "assistant": {
+                            "contains": [
+                                "Disculp",
+                                "soporte"
+                            ]
+                        }
+                    }
+                }
+            ]
+        }
+    ]
+}

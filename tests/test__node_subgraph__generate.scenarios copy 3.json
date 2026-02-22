@@ -1,0 +1,154 @@
+{
+    "node_ref": "app.core.graph.nodes.route_subgraph:node__route_generate",
+    "scenarios": [
+        {
+            "id": "generate_1",
+            "title": "Topic switch clears lock, attempts, confidence, and retrieved",
+            "tags": [
+                "route_subgraph",
+                "generate",
+                "requires_mock_llm",
+                "topic_switch"
+            ],
+            "setup": {
+                "route_id": "TPMS",
+                "initial_state": {
+                    "attempts": 2,
+                    "locked_route": "TPMS",
+                    "confidence": 0.7,
+                    "retrieved": [
+                        {
+                            "page_content": "tpms doc"
+                        }
+                    ],
+                    "messages": [
+                        {
+                            "type": "human",
+                            "content": "Ahora quiero ver aires acondicionados"
+                        }
+                    ]
+                },
+                "mocks": {
+                    "llm_output": {
+                        "is_topic_switch": true,
+                        "answer": ""
+                    }
+                }
+            },
+            "turns": [
+                {
+                    "user_msg": "Ahora quiero ver aires acondicionados",
+                    "expect": {
+                        "action": "noop",
+                        "state": {
+                            "locked_route": null,
+                            "attempts": 0,
+                            "confidence": 0,
+                            "retrieved": null
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "id": "generate_2",
+            "title": "Normal answer increments attempts and returns AI message",
+            "tags": [
+                "route_subgraph",
+                "generate",
+                "requires_mock_llm",
+                "deterministic_with_stub"
+            ],
+            "setup": {
+                "route_id": "AA",
+                "initial_state": {
+                    "attempts": 0,
+                    "locked_route": "AA",
+                    "retrieved": [
+                        {
+                            "page_content": "aa doc"
+                        }
+                    ],
+                    "messages": [
+                        {
+                            "type": "human",
+                            "content": "No enfría y hace ruido"
+                        }
+                    ]
+                },
+                "mocks": {
+                    "llm_output": {
+                        "is_topic_switch": false,
+                        "answer": "Probá limpiar el filtro y revisá el ventilador."
+                    }
+                }
+            },
+            "turns": [
+                {
+                    "user_msg": "No enfría y hace ruido",
+                    "expect": {
+                        "state": {
+                            "attempts": 1,
+                            "locked_route": "AA"
+                        },
+                        "assistant": {
+                            "contains": [
+                                "limpiar",
+                                "filtro"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "id": "generate_3",
+            "title": "Empty answer triggers fallback message and still increments attempts",
+            "tags": [
+                "route_subgraph",
+                "generate",
+                "requires_mock_llm",
+                "fallback"
+            ],
+            "setup": {
+                "route_id": "AA",
+                "initial_state": {
+                    "attempts": 1,
+                    "locked_route": "AA",
+                    "retrieved": [
+                        {
+                            "page_content": "aa doc"
+                        }
+                    ],
+                    "messages": [
+                        {
+                            "type": "human",
+                            "content": "ok"
+                        }
+                    ]
+                },
+                "mocks": {
+                    "llm_output": {
+                        "is_topic_switch": false,
+                        "answer": ""
+                    }
+                }
+            },
+            "turns": [
+                {
+                    "user_msg": "ok",
+                    "expect": {
+                        "state": {
+                            "attempts": 2
+                        },
+                        "assistant": {
+                            "contains": [
+                                "¿Podés darme un poco más de detalle"
+                            ]
+                        }
+                    }
+                }
+            ]
+        }
+    ]
+}

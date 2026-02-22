@@ -1,0 +1,38 @@
+{
+    "node_ref": "app.core.graph.nodes.route_subgraph:node__route_clarify",
+    "scenarios": [
+        {
+            "id": "clarify_1",
+            "title": "Clarify asks a route-specific disambiguation question and does not set retrieved",
+            "tags": [
+                "route_subgraph",
+                "clarify",
+                "no_llm",
+                "deterministic"
+            ],
+            "setup": {
+                "route_id": "AA",
+                "initial_state": {
+                    "attempts": 0,
+                    "locked_route": "AA",
+                    "retrieved": [
+                        {
+                            "page_content": "should be cleared by clarify"
+                        }
+                    ]
+                }
+            },
+            "turns": [
+                {
+                    "user_msg": "Tengo un problema",
+                    "expect": {
+                        "action": "ask_clarifier",
+                        "state": {
+                            "retrieved": null
+                        }
+                    }
+                }
+            ]
+        }
+    ]
+}

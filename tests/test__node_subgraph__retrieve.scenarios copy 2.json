@@ -1,0 +1,65 @@
+{
+    "node_ref": "app.core.graph.nodes.route_subgraph:node__route_retrieve",
+    "scenarios": [
+        {
+            "id": "retrieve_1",
+            "title": "Retrieve stores docs into state.retrieved (fixed stubbed docs)",
+            "tags": [
+                "route_subgraph",
+                "retrieve",
+                "requires_mock_retriever"
+            ],
+            "setup": {
+                "route_id": "TPMS",
+                "initial_state": {
+                    "messages": [
+                        {
+                            "type": "human",
+                            "content": "no conecta el sensor"
+                        }
+                    ],
+                    "retrieved": null
+                },
+                "mocks": {
+                    "retriever_docs": [
+                        {
+                            "page_content": "Doc A",
+                            "metadata": {
+                                "id": "a"
+                            }
+                        },
+                        {
+                            "page_content": "Doc B",
+                            "metadata": {
+                                "id": "b"
+                            }
+                        }
+                    ]
+                }
+            },
+            "turns": [
+                {
+                    "user_msg": "no conecta el sensor",
+                    "expect": {
+                        "state": {
+                            "retrieved": [
+                                {
+                                    "page_content": "Doc A",
+                                    "metadata": {
+                                        "id": "a"
+                                    }
+                                },
+                                {
+                                    "page_content": "Doc B",
+                                    "metadata": {
+                                        "id": "b"
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            ]
+        }
+    ]
+}

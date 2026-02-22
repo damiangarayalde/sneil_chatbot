@@ -245,6 +245,7 @@ def run_all(node_fn: NodeFn, scenarios: List[Scenario]) -> None:
 
 # -----------------------------------------------------------------------------
 # CLI
+# python tests/run_test.py tests/test__node_classifier.scenarios.json
 
 
 def main() -> None:
