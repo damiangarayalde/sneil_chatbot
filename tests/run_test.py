@@ -256,15 +256,15 @@ def _assert_expect(state: Dict[str, Any], expect: Dict[str, Any]) -> None:
     if not _matches_expect(state, expect):
         last_ai = _last_ai_message(state.get("messages") or [])
         raise AssertionError(
-            SET_BLUE + "Expectation failed\n" +
-            SET_BLUE + "- expected: " + RESET_COLOR + f"{expect}\n" +
-            SET_BLUE + "- got: " + RESET_COLOR +
+            SET_BLUE + "  Expectation failed\n" +
+            SET_BLUE + "  - expected: " + RESET_COLOR + f"{expect}\n" +
+            SET_BLUE + "  - got: " + RESET_COLOR +
             " locked_route = " + SET_CYAN + f"{state.get('locked_route')}" + RESET_COLOR +
             " estimated_route = " + SET_CYAN + f"{state.get('estimated_route')} " + RESET_COLOR +
             " escalated_to_human = " + SET_CYAN + f"{state.get('escalated_to_human')}" + RESET_COLOR +
             " attempts = " + SET_CYAN + f"{state.get('attempts')} " + RESET_COLOR +
             " confidence = " + SET_CYAN + f"{state.get('confidence')}" + RESET_COLOR + "\n" +
-            SET_BLUE + "- last_ai = " + SET_CYAN +
+            SET_BLUE + "  - last_ai = " + SET_CYAN +
             f"{repr(last_ai)}" + RESET_COLOR
         )
 
@@ -348,7 +348,7 @@ def run_all(obj: Any, scenarios: List[Scenario], bundle_meta: Dict[str, Any]) ->
             run_scenario(node_fn, s)
         except Exception as e:
             failures += 1
-            print("\n❌ FAILED:", s.get("id"))
+            print("\n  ❌ FAILED:", s.get("id"))
             print(e)
 
     print("\n" + "=" * 90)
