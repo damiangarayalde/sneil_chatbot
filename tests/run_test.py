@@ -1,23 +1,28 @@
 """
 Single runner for node scenarios.
 
-Each scenario JSON file is an object with BOTH:
-- "node_ref": "module.path:callable_name"
-- "scenarios": [ ... ]   (your Scenario Spec v1 list)
+Supports two bundle modes:
 
-Example:
+A) Direct node callable (original behavior)
 {
-  "node_ref": "app.core.graph.nodes.hub:node__classify_user_intent",
-  "scenarios": [
-    { "id": "Scenario_1", "title": "...", "setup": {...}, "turns": [...] }
-  ]
+  "node_ref": "module.path:callable_name",
+  "scenarios": [ ... ]
 }
 
-Run:
-  python utility_to_run_scenarios.py path/to/bundle.json
-  python utility_to_run_scenarios.py bundle1.json bundle2.json
+B) Route subgraph node wrapper (NEW)
+{
+  "node_ref": "app.core.graph.nodes.route_subgraph:make_route_subgraph",
+  "route_id": "AA",
+  "node_name": "generate",
+  "scenarios": [ ... ]
+}
 
-This stays intentionally small: node-only (no graphs), no pytest plugins, no extra abstractions.
+Also allowed: route_id/node_name can be provided inside scenario.setup, and will override bundle-level.
+This lets you keep one bundle and vary per-scenario if desired.
+
+Run:
+  python run_test.py path/to/bundle.json
+  python run_test.py bundle1.json bundle2.json
 """
 
 from __future__ import annotations
@@ -25,6 +30,7 @@ from __future__ import annotations
 import argparse
 import importlib
 import json
+import inspect
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
@@ -35,15 +41,13 @@ NodeFn = Callable[[Dict[str, Any]], Dict[str, Any]]
 
 
 # -----------------------------------------------------------------------------
-# Loading + node resolving (BUNDLE ONLY)
-
+# Import helpers
 
 def _import_from_ref(ref: str) -> Any:
     """Import 'module:attr' (attr can be dotted)."""
     if ":" not in ref:
         raise ValueError(
-            f"Invalid node_ref '{ref}'. Expected format: module.path:callable_name"
-        )
+            f"Invalid node_ref '{ref}'. Expected format: module.path:callable_name")
     mod_name, attr_path = ref.split(":", 1)
     mod = importlib.import_module(mod_name)
     obj: Any = mod
@@ -52,19 +56,83 @@ def _import_from_ref(ref: str) -> Any:
     return obj
 
 
-def load_scenarios_json(path: str | Path) -> Tuple[NodeFn, List[Scenario]]:
-    """Load a scenario bundle and resolve its node function.
+# -----------------------------------------------------------------------------
+# Route subgraph wrapper (NEW)
 
-    REQUIRED JSON schema:
+def _extract_graph_nodes_dict(graph_obj: Any) -> Dict[str, Any]:
+    """
+    Try common attribute names for node storage on StateGraph / compiled graphs.
+    We keep this defensive because LangGraph internals can vary by version.
+    """
+    for attr in ("nodes", "_nodes", "node_map", "_node_map"):
+        if hasattr(graph_obj, attr):
+            d = getattr(graph_obj, attr)
+            if isinstance(d, dict):
+                return d
+    raise TypeError(
+        "Could not locate a node dictionary on the graph object. "
+        "Tried attributes: nodes, _nodes, node_map, _node_map."
+    )
+
+
+def _as_node_callable(node_obj: Any) -> NodeFn:
+    """
+    Normalize a LangGraph/LangChain node into a callable(state)->patch.
+    Many LangChain runnables expose .invoke(input).
+    """
+    if callable(node_obj):
+        # direct python function (your closures)
+        def _fn(state: Dict[str, Any]) -> Dict[str, Any]:
+            out = node_obj(state)
+            return out or {}
+        return _fn
+
+    if hasattr(node_obj, "invoke") and callable(getattr(node_obj, "invoke")):
+        def _fn(state: Dict[str, Any]) -> Dict[str, Any]:
+            out = node_obj.invoke(state)
+            return out or {}
+        return _fn
+
+    raise TypeError(
+        f"Node object is neither callable nor has .invoke(): {type(node_obj)}")
+
+
+def _wrap_route_subgraph_node(graph_factory: Callable[..., Any], route_id: str, node_name: str) -> NodeFn:
+    """
+    Create a node_fn(state)->patch by:
+      - building the route subgraph for route_id
+      - extracting node callable by node_name
+    """
+    g = graph_factory(route_id)
+
+    nodes = _extract_graph_nodes_dict(g)
+    if node_name not in nodes:
+        available = ", ".join(sorted(nodes.keys()))
+        raise KeyError(
+            f"Node '{node_name}' not found in graph. Available nodes: {available}")
+
+    return _as_node_callable(nodes[node_name])
+
+
+# -----------------------------------------------------------------------------
+# Loading + resolving
+
+def load_scenarios_json(path: str | Path) -> Tuple[Any, List[Scenario], Dict[str, Any]]:
+    """
+    Load bundle JSON.
+
+    REQUIRED:
       { "node_ref": str, "scenarios": list[Scenario] }
+
+    OPTIONAL (for route subgraph wrapper mode):
+      { "route_id": str, "node_name": str }
     """
     p = Path(path)
     data = json.loads(p.read_text(encoding="utf-8"))
 
     if not isinstance(data, dict):
         raise ValueError(
-            f"Scenario bundle must be a JSON object with keys 'node_ref' and 'scenarios'. Got: {type(data)}"
-        )
+            f"Scenario bundle must be a JSON object. Got: {type(data)}")
 
     node_ref = data.get("node_ref")
     scenarios = data.get("scenarios")
@@ -75,17 +143,43 @@ def load_scenarios_json(path: str | Path) -> Tuple[NodeFn, List[Scenario]]:
     if not isinstance(scenarios, list):
         raise ValueError("'scenarios' is required and must be a list.")
 
-    fn = _import_from_ref(node_ref)
-    if not callable(fn):
+    obj = _import_from_ref(node_ref)
+    if not callable(obj):
         raise TypeError(f"Resolved node_ref is not callable: {node_ref}")
 
-    return fn, scenarios  # type: ignore[return-value]
+    # pass through bundle-level extras
+    bundle_meta = {
+        "route_id": data.get("route_id"),
+        "node_name": data.get("node_name"),
+        "node_ref": node_ref,
+    }
+    return obj, scenarios, bundle_meta
 
 
-# python utility_to_run_scenarios_bundle_only.py path/to/your_bundle.json
+def _resolve_node_fn(obj: Any, bundle_meta: Dict[str, Any], scenario: Scenario) -> NodeFn:
+    """
+    Resolve the actual NodeFn to run for this scenario.
+
+    - If bundle provides route_id+node_name (or scenario.setup does), treat obj as graph_factory(route_id)
+      and extract node node_name.
+    - Otherwise, treat obj as direct node_fn(state)->patch.
+    """
+    setup = scenario.get("setup") or {}
+    route_id = setup.get("route_id", bundle_meta.get("route_id"))
+    node_name = setup.get("node_name", bundle_meta.get("node_name"))
+
+    if route_id and node_name:
+        return _wrap_route_subgraph_node(obj, str(route_id), str(node_name))
+
+    # direct mode
+    def _fn(state: Dict[str, Any]) -> Dict[str, Any]:
+        out = obj(state)
+        return out or {}
+    return _fn
+
+
 # -----------------------------------------------------------------------------
-# Runner (kept almost identical to your current engine)
-
+# Runner
 
 def _apply_patch(state: Dict[str, Any], patch: Dict[str, Any]) -> Dict[str, Any]:
     """Apply a LangGraph-style partial update to a local state dict."""
@@ -222,15 +316,16 @@ def run_scenario(node_fn: NodeFn, s: Scenario) -> Dict[str, Any]:
         else:
             _assert_expect(state, exp)
 
-        print("\n \n")  # extra space
+        print("\n")  # extra space
 
     return state
 
 
-def run_all(node_fn: NodeFn, scenarios: List[Scenario]) -> None:
+def run_all(obj: Any, scenarios: List[Scenario], bundle_meta: Dict[str, Any]) -> None:
     failures = 0
     for s in scenarios:
         try:
+            node_fn = _resolve_node_fn(obj, bundle_meta, s)
             run_scenario(node_fn, s)
         except Exception as e:
             failures += 1
@@ -245,8 +340,6 @@ def run_all(node_fn: NodeFn, scenarios: List[Scenario]) -> None:
 
 # -----------------------------------------------------------------------------
 # CLI
-# python tests/run_test.py tests/test__node_classifier.scenarios.json
-
 
 def main() -> None:
     ap = argparse.ArgumentParser(
@@ -259,13 +352,18 @@ def main() -> None:
 
     for bundle_path in args.bundle_files:
         try:
-            node_fn, scenarios = load_scenarios_json(bundle_path)
+            obj, scenarios, bundle_meta = load_scenarios_json(bundle_path)
+
             print("\n" + "#" * 90)
             print(f"Bundle: {bundle_path}")
+            print(f"node_ref: {bundle_meta.get('node_ref')}")
+            if bundle_meta.get("route_id") and bundle_meta.get("node_name"):
+                print(
+                    f"route_id/node_name: {bundle_meta.get('route_id')} / {bundle_meta.get('node_name')}")
             print(f"Scenarios: {len(scenarios)}")
-            run_all(node_fn, scenarios)
+
+            run_all(obj, scenarios, bundle_meta)
         except SystemExit as e:
-            # run_all uses SystemExit for failures
             total_failures += 1
         except Exception as e:
             total_failures += 1
