@@ -256,12 +256,16 @@ def _assert_expect(state: Dict[str, Any], expect: Dict[str, Any]) -> None:
     if not _matches_expect(state, expect):
         last_ai = _last_ai_message(state.get("messages") or [])
         raise AssertionError(
-            "Expectation failed\n"
-            f"- expected: {expect}\n"
-            f"- got locked_route={state.get('locked_route')} estimated_route={state.get('estimated_route')} "
-            f"escalated_to_human={state.get('escalated_to_human')} attempts={state.get('attempts')} "
-            f"confidence={state.get('confidence')}\n"
-            f"- last_ai={repr(last_ai)}"
+            SET_BLUE + "Expectation failed\n" +
+            SET_BLUE + "- expected: " + RESET_COLOR + f"{expect}\n" +
+            SET_BLUE + "- got: " + RESET_COLOR +
+            " locked_route = " + SET_CYAN + f"{state.get('locked_route')}" + RESET_COLOR +
+            " estimated_route = " + SET_CYAN + f"{state.get('estimated_route')} " + RESET_COLOR +
+            " escalated_to_human = " + SET_CYAN + f"{state.get('escalated_to_human')}" + RESET_COLOR +
+            " attempts = " + SET_CYAN + f"{state.get('attempts')} " + RESET_COLOR +
+            " confidence = " + SET_CYAN + f"{state.get('confidence')}" + RESET_COLOR + "\n" +
+            SET_BLUE + "- last_ai = " + SET_CYAN +
+            f"{repr(last_ai)}" + RESET_COLOR
         )
 
 
@@ -269,11 +273,11 @@ def run_scenario(node_fn: NodeFn, s: Scenario) -> Dict[str, Any]:
     state: Dict[str, Any] = {"messages": []}
     state.update((s.get("setup") or {}).get("initial_state") or {})
 
-    print(SET_GREEN + "\n" + "=" * 90 + RESET_COLOR)
+    print(SET_GREEN + "\n" + "=" * 100 + RESET_COLOR)
     print(SET_GREEN + f"{s.get('id')}: {s.get('title')}" + RESET_COLOR)
     print()
     for k in sorted(state.keys()):
-        print(SET_BLUE + " _initial_ " + RESET_COLOR
+        print(SET_BLUE + "  _initial_ " + RESET_COLOR
               + f"state.{k}: "
               + SET_CYAN + f"{state[k]}" + RESET_COLOR)
 
@@ -287,29 +291,32 @@ def run_scenario(node_fn: NodeFn, s: Scenario) -> Dict[str, Any]:
 
         last_ai = _last_ai_message(state.get("messages") or [])
 
-        print("\n " + "." * 90)
-        print(f" Turn {i}:")
-        print(SET_BLUE + "\n _input_ " + RESET_COLOR + "User: ",
-              repr(user_msg_text), RESET_COLOR)
-        print("\n" + "." * 90)
+        # print("\n " + "." * 90)
+        print()
+        print(SET_GREEN + f"  Turn {i} >" + "-" * 89 + RESET_COLOR)
+        print(SET_BLUE + "\n  _input_ " + RESET_COLOR + "User: " + SET_CYAN + f"{repr(user_msg_text)}" +
+              RESET_COLOR)
+        print(SET_GREEN + "  " + "." * 97 + RESET_COLOR)
 
         locked_route = state.get("locked_route")
         if locked_route:
             print(
-                SET_BLUE + " _output_ " + RESET_COLOR + "state.locked_route: " + SET_CYAN + f"{locked_route}" + RESET_COLOR)
+                SET_BLUE + "  _output_ " + RESET_COLOR + "state.locked_route: " + SET_CYAN + f"{locked_route}" + RESET_COLOR)
         else:
             print(
-                SET_BLUE + " _output_ " + RESET_COLOR + "state.estimated_route: " + SET_CYAN +
+                SET_BLUE + "  _output_ " + RESET_COLOR + "state.estimated_route: " + SET_CYAN +
                 f"{state.get('estimated_route')}" + RESET_COLOR + "\t confidence: " +
                 SET_CYAN + f"{state.get('confidence')} " + RESET_COLOR
             )
-        print(SET_BLUE + " _output_ " + RESET_COLOR + "state.attempts: " + SET_CYAN +
+        print(SET_BLUE + "  _output_ " + RESET_COLOR + "state.attempts: " + SET_CYAN +
               f"{state.get("attempts")}" + RESET_COLOR)
-        print(SET_BLUE + " _output_ " + RESET_COLOR + "state.escalated_to_human: " + SET_CYAN +
+        print(SET_BLUE + "  _output_ " + RESET_COLOR + "state.escalated_to_human: " + SET_CYAN +
               f"{state.get("escalated_to_human")}" + RESET_COLOR)
         if last_ai:
-            print(SET_BLUE + "\n _output_ " + RESET_COLOR +
+            print(SET_BLUE + "\n  _output_ " + RESET_COLOR +
                   "Assistant: " + SET_CYAN, last_ai, RESET_COLOR)
+
+        print()  # blank space
 
         exp = turn.get("expect")
         if not exp:
@@ -320,10 +327,10 @@ def run_scenario(node_fn: NodeFn, s: Scenario) -> Dict[str, Any]:
             if not any(_matches_expect(state, opt) for opt in options):
                 raise AssertionError(
                     "No expectation in one_of matched\n"
-                    f"- one_of: {options}\n"
-                    f"- got: locked_route={state.get('locked_route')} estimated_route={state.get('estimated_route')} "
-                    f"escalated_to_human={state.get('escalated_to_human')} attempts={state.get('attempts')} "
-                    f"confidence={state.get('confidence')} last_ai={repr(last_ai)}"
+                    f" - one_of: {options}\n"
+                    f" - got: locked_route={state.get('locked_route')} estimated_route={state.get('estimated_route')} "
+                    f" escalated_to_human={state.get('escalated_to_human')} attempts={state.get('attempts')} "
+                    f" confidence={state.get('confidence')} last_ai={repr(last_ai)}"
                 )
         else:
             _assert_expect(state, exp)
