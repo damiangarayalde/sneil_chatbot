@@ -1,5 +1,7 @@
 {
-    "node_ref": "app.core.graph.nodes.route_subgraph:node__route_generate",
+    "node_ref": "app.core.graph.nodes.route_subgraph:make_route_subgraph",
+    "route_id": "AA",
+    "node_name": "generate",
     "scenarios": [
         {
             "id": "generate_1",
