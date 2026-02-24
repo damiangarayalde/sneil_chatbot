@@ -168,24 +168,21 @@ def make_route_subgraph(route_id: str) -> StateGraph:
             "escalated_to_human": escalated,
         }
 
-    def enforce_limits(state: ChatState) -> ChatState:
-        # """Ensure the generated answer respects the configured character limit.
+    def confirm(state: ChatState) -> ChatState:
+        """Ask for a simple confirmation after providing an answer.
 
-        # If the answer is too long, compress it using a smaller model.
-        # """
-        # ans = state.get("answer") or ""
-        # if len(ans) <= max_chars:
-        #     return state
+        Kept separate from `generate()` so:
+        - attempts are incremented ONLY once per solve attempt (in `generate`)
+        - UI/tests can display answer + confirmation as two messages
+        """
+        # If we already escalated or we cleared the lock (topic switch), don't ask.
+        if state.get("escalated_to_human"):
+            return {}
+        if state.get("locked_route") is None:
+            return {}
 
-        # compressor = ChatOpenAI(model="gpt-4o-mini", temperature=0)
-        # compress_prompt = ChatPromptTemplate.from_messages([
-        #     ("system",
-        #      f"Shorten to <= {max_chars} characters, keep links intact, keep meaning."),
-        #     ("human", "{text}")
-        # ])
-        # state["answer"] = compressor.invoke(
-        #     compress_prompt.format_messages(text=ans)).content
-        return state
+        msg = "¿RRRRTe sirvió? Respondé **sí** si quedó resuelto, o contame qué sigue pasandooo."
+        return {"messages": [AIMessage(content=msg)]}
 
     # --- Graph Construction ---
     g = StateGraph(ChatState)
@@ -194,7 +191,7 @@ def make_route_subgraph(route_id: str) -> StateGraph:
     g.add_node("clarify", clarify)
     g.add_node("retrieve", retrieve)
     g.add_node("generate", generate)
-    # g.add_node("enforce_limits", enforce_limits)
+    g.add_node("confirm", confirm)
 
     # Start decision (gate + clarify vs solve)
     g.add_conditional_edges(
@@ -210,7 +207,6 @@ def make_route_subgraph(route_id: str) -> StateGraph:
     g.add_edge("handoff", END)
     g.add_edge("clarify", END)
     g.add_edge("retrieve", "generate")
-    g.add_edge("generate", END)
-    # g.add_edge("generate", "enforce_limits")
-    # g.add_edge("enforce_limits", "maybe_handoff")
+    g.add_edge("generate", "confirm")
+    g.add_edge("confirm", END)
     return g.compile()
