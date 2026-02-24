@@ -31,8 +31,14 @@ class ChatState(TypedDict, total=False):
     # Escalation flag (handoff to human)
     escalated_to_human: bool
 
-    # Per-route attempts / escalation
+    routing_attempts: int   # classifier/disambiguation attempts
+    solve_attempts: int     # answer attempts inside locked route
+
+    # (TEMP) legacy counter — keep during migration so old code won’t break.
     attempts: int
+
+    # Optional per-route solve threshold to allow high-level gating later
+    max_solve_attempts: Optional[int]
 
     # RAG output (its a list of docs)
     retrieved: Optional[List[Dict[str, Any]]]
@@ -60,16 +66,3 @@ def get_history_and_last_msg(messages: list[BaseMessage]) -> tuple[list[BaseMess
     last_msg = getattr(last, "content", "") or ""
     history = list(messages[:-1])
     return history, last_msg
-
-    # filtered = []
-    # for m in prior_messages:
-    #     if isinstance(m, (HumanMessage, AIMessage)):
-    #         filtered.append(m)
-
-    # history: list[BaseMessage] = filtered[-CLASSIFIER_HISTORY_MAX_MESSAGES:]
-
-    # # Cap total history size by dropping oldest messages (keeps type=list[BaseMessage]).
-    # total_chars = sum(len(getattr(m, "content", "") or "") for m in history)
-    # while history and total_chars > CLASSIFIER_HISTORY_MAX_CHARS:
-    #     dropped = history.pop(0)
-    #     total_chars -= len(getattr(dropped, "content", "") or "")
