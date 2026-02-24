@@ -50,14 +50,8 @@ chain = classifier_prompt | llm.with_structured_output(ClassifierOutput)
 
 # Max number of iterative solution attempts before we suggest human handoff.
 max_attempts_before_handoff = int(
-    classifier_cfg.get("max_attempts_before_handoff")
-    or 0
-)
-
-route_lock_threshold = float(
-    classifier_cfg.get("route_lock_threshold")
-    or 0.7
-)
+    classifier_cfg.get("max_attempts_before_handoff") or 0)
+route_lock_threshold = float(classifier_cfg.get("route_lock_threshold") or 0.7)
 
 
 def node__classify_user_intent(state: ChatState) -> ChatState:
@@ -80,62 +74,70 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
     prior_messages, last_message = get_history_and_last_msg(
         state.get("messages") or [])
     last_message = last_message or ""
-    attempts = int(state.get("attempts") or 0)
 
-    # 2) escalation
-    if attempts >= max_attempts_before_handoff or asked_for_human(last_message):
+    routing_attempts = int(state.get("routing_attempts") or 0)
+
+    # (still here in Step 1) escalation
+    if routing_attempts >= max_attempts_before_handoff or asked_for_human(last_message):
         return {
             "escalated_to_human": True,
-            "attempts": 0,
+            "routing_attempts": 0,
+            "solve_attempts": 0,
+            "attempts": 0,  # legacy
             "messages": [AIMessage(content=escalation_message())],
         }
 
-    # 3) cheap direct routing
+    # cheap direct routing
     direct = direct_route_from_keywords(last_message, ALLOWED_ROUTES)
     if direct:
+        # For now, don’t set max_solve_attempts yet (we’ll do it in Step 3 cleanly)
         return {
             "confidence": 1.0,
             "estimated_route": direct,
             "locked_route": direct,
-            "attempts": 0,
+            "routing_attempts": 0,
+            "solve_attempts": 0,
+            "attempts": 0,  # legacy
         }
 
-    # 4) low-info => don't lock
+    # low-info => don't lock
     if is_low_info(last_message):
         return {
             "confidence": 0.0,
-            "attempts": attempts,  # low info doesnt count as attempt
+            "routing_attempts": routing_attempts,  # low info doesn't count
+            "attempts": routing_attempts,          # legacy
             "messages": [AIMessage(content=default_clarifier())],
         }
 
-    # 5) LLM classifier
-    meta_text = f"routing_attempts={attempts}\n"
-    fmt_kwargs = {
-        "user_text": last_message,
-        "history": prior_messages,
-        "context": "",
-        "meta": meta_text,
-    }
-    result = chain.invoke(fmt_kwargs)
+    # LLM classifier
+    meta_text = f"routing_attempts={routing_attempts}\n"
+    result = chain.invoke(
+        {
+            "user_text": last_message,
+            "history": prior_messages,
+            "context": "",
+            "meta": meta_text,
+        }
+    )
 
-    # high confidence => lock
-    # Be conservative: if the model provides a clarifying question, treat it as low-confidence.
     has_clarifier = bool((result.clarifying_question or "").strip())
     if (not has_clarifier) and float(result.confidence) >= route_lock_threshold:
         return {
             "confidence": float(result.confidence),
             "estimated_route": result.estimated_route,
             "locked_route": result.estimated_route,
-            "attempts": 0,
+            "routing_attempts": 0,
+            "solve_attempts": 0,
+            "attempts": 0,  # legacy
         }
 
-    # low confidence => ask a question
     question = (result.clarifying_question or "").strip() or route_disambiguation_question(
         result.estimated_route
     )
     return {
         "confidence": float(result.confidence),
         "estimated_route": result.estimated_route,
-        "attempts": attempts + 1,
+        "routing_attempts": routing_attempts + 1,
+        "attempts": routing_attempts + 1,  # legacy
         "messages": [AIMessage(content=wrap_with_greeting(question))],
     }

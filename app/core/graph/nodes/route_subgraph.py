@@ -57,25 +57,23 @@ def make_route_subgraph(route_id: str) -> StateGraph:
 
     # Max number of iterative solution attempts before we suggest human handoff.
     max_attempts_before_handoff = int(
-        route_cfg.get("max_attempts_before_handoff")
-        or 0
-    )
+        route_cfg.get("max_attempts_before_handoff") or 0)
 
     def route_from_start(state: ChatState) -> Literal["handoff", "clarify", "retrieve"]:
         """Single decision point at START."""
         last_msg = get_last_msg(state.get("messages") or [])
-        attempts = int(state.get("attempts") or 0)
+        solve_attempts = int(state.get("solve_attempts") or 0)
 
         # 0) explicit human request always wins
         if asked_for_human(last_msg):
             return "handoff"
 
         # 1) max attempts gate (check BEFORE any solving work)
-        if max_attempts_before_handoff and attempts >= max_attempts_before_handoff:
+        if max_attempts_before_handoff and solve_attempts >= max_attempts_before_handoff:
             return "handoff"
 
         # 2) first attempt and vague message => clarifying question (no RAG, no attempts increment)
-        if attempts == 0 and not should_retrieve(last_msg):
+        if solve_attempts == 0 and not should_retrieve(last_msg):
             return "clarify"
 
         # 3) otherwise, solve path (always includes retrieval)
@@ -89,7 +87,8 @@ def make_route_subgraph(route_id: str) -> StateGraph:
         )
         return {
             "messages": [AIMessage(content=msg)],
-            "attempts": 0,
+            "solve_attempts": 0,
+            "attempts": 0,  # legacy
             "escalated_to_human": True,
             "locked_route": None,
             "confidence": 0,
@@ -132,29 +131,29 @@ def make_route_subgraph(route_id: str) -> StateGraph:
         docs = state.get("retrieved") or []
         context_text = "\n\n".join((d.get("page_content") or "") for d in docs)
 
-        response = chain.invoke({
-            "history": history,         # chat history
-            "user_text": last_msg,      # current user msg
-            "context": context_text,    # optional; rag_data
-            "meta": ""
-            # any route extras go here
-        })
+        response = chain.invoke(
+            {
+                "history": history,
+                "user_text": last_msg,
+                "context": context_text,
+                "meta": "",
+            }
+        )
 
-        # If the user switched product/topic, clear lock so the hub can re-route.
         if response.is_topic_switch:
             return {
                 "locked_route": None,
                 "retrieved": None,
                 "confidence": 0,
-                "attempts": 0,
+                "solve_attempts": 0,
+                "attempts": 0,  # legacy
             }
 
         dt_ms = (time.perf_counter() - t0) * 1000
-
         print(f"[{route_id}] LLM elapsed: {dt_ms:.1f} ms")
 
         # Count one "solving attempt" each time we send an LLM answer back.
-        attempts_so_far = int(state.get("attempts") or 0) + 1
+        solve_attempts_so_far = int(state.get("solve_attempts") or 0) + 1
 
         answer_text = (response.answer or "").strip()
         if not answer_text:
@@ -164,7 +163,8 @@ def make_route_subgraph(route_id: str) -> StateGraph:
 
         return {
             "messages": [AIMessage(content=answer_text)],
-            "attempts": attempts_so_far,
+            "solve_attempts": solve_attempts_so_far,
+            "attempts": solve_attempts_so_far,  # legacy
             "escalated_to_human": escalated,
         }
 
@@ -181,7 +181,7 @@ def make_route_subgraph(route_id: str) -> StateGraph:
         if state.get("locked_route") is None:
             return {}
 
-        msg = "¿RRRRTe sirvió? Respondé **sí** si quedó resuelto, o contame qué sigue pasandooo."
+        msg = "¿Te sirvió? Respondé **sí** si quedó resuelto, o contame qué sigue pasando."
         return {"messages": [AIMessage(content=msg)]}
 
     # --- Graph Construction ---
