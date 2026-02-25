@@ -1,17 +1,25 @@
 from __future__ import annotations
 
 import time
+from functools import lru_cache
 from typing import Literal
 
-from pydantic import BaseModel, Field
-from langgraph.graph import StateGraph, START, END
 from langchain_core.messages import AIMessage
+from langgraph.graph import END, START, StateGraph
+from pydantic import BaseModel, Field
 
-from app.core.graph.state import ChatState, get_history_and_last_msg, get_last_msg
 from app.core.graph.msg_heuristics_no_llm import should_retrieve
+from app.core.graph.state import (
+    ChatState,
+    clear_lock,
+    reset_solve_state,
+    set_legacy_attempts,
+    get_history_and_last_msg,
+    get_last_msg,
+)
 from app.core.prompts.builders import make_chat_prompt_for_route
-from app.core.utils import init_llm
 from app.core.tools.rag import get_retriever
+from app.core.utils import init_llm
 # from app.tools.catalog_tool import catalog_lookup
 
 # -----------------------------------------------------------------------------
@@ -24,29 +32,36 @@ class HandlerOutput(BaseModel):
     - If the user switched product/topic, we want to clear lock so hub can re-route.
     - Otherwise we send back an answer.
     """
+
     is_topic_switch: bool = Field(
-        description="True if the user changed the topic to a different product.")
+        description="True if the user changed the topic to a different product."
+    )
     answer: str = Field(
         description="The response to the user. Empty if is_topic_switch is True."
     )
 
-# -----------------------------------------------------------------------------
-# Graph factory
+
+@lru_cache(maxsize=64)
+def _get_route_chain(route_id: str):
+    """Build route handler chain lazily and cache it."""
+    llm = init_llm(model="gpt-4o-mini", temperature=0)
+    prompt_template, _route_cfg = make_chat_prompt_for_route(route_id)
+    return prompt_template | llm.with_structured_output(HandlerOutput)
+
+
+@lru_cache(maxsize=64)
+def _get_route_retriever(route_id: str, k: int = 3):
+    return get_retriever(route_id, k=k)
 
 
 def make_route_subgraph(route_id: str) -> StateGraph:
     """Construct a StateGraph subgraph for a given locked route.
 
     Intended behavior:
-    1) START checks max solve attempts (and explicit human request). If exceeded => handoff + reset attempts.
-    2) If attempts == 0 and message is vague => clarifying question (NO RAG, NO attempts increment)
-    3) Otherwise => retrieve (RAG) => generate answer + separate confirmation => attempts += 1
+    1) START chooses retrieve vs generate based on heuristics.
+    2) retrieve (optional) -> generate -> confirm -> END
     """
-
-    # Initialize LLM and Prompt
-    llm = init_llm(model="gpt-4o-mini", temperature=0)
-    prompt_template, _route_cfg = make_chat_prompt_for_route(route_id)
-    chain = prompt_template | llm.with_structured_output(HandlerOutput)
+    chain = _get_route_chain(route_id)
 
     def route_from_start(state: ChatState) -> Literal["retrieve", "generate"]:
         last_msg = get_last_msg(state.get("messages") or [])
@@ -55,17 +70,12 @@ def make_route_subgraph(route_id: str) -> StateGraph:
     def retrieve(state: ChatState) -> ChatState:
         """Retrieve context documents for the route based on the user query."""
         last_msg = get_last_msg(state.get("messages") or [])
-        retriever = get_retriever(route_id, k=3)
+        retriever = _get_route_retriever(route_id, k=3)
         retrieved_docs = retriever.invoke(last_msg)
-        print(f"[{route_id}] Retrieved docs: {len(retrieved_docs)}")
         return {"retrieved": [d.dict() for d in retrieved_docs]}
 
     def generate(state: ChatState) -> ChatState:
-        """Generate an answer using the LLM and retrieved context.
-
-        If the user appears to ask for price/SKU/link, call the catalog tool
-        and append its output to the context before invoking the LLM.
-        """
+        """Generate an answer using the LLM and retrieved context."""
         t0 = time.perf_counter()
 
         history, last_msg = get_history_and_last_msg(
@@ -92,14 +102,12 @@ def make_route_subgraph(route_id: str) -> StateGraph:
         # Topic switch => clear lock so hub can re-route next
         if response.is_topic_switch:
             return {
-                "locked_route": None,
-                "retrieved": None,
-                "confidence": 0,
-                "solve_attempts": 0,
-                "max_solve_attempts": None,
+                **clear_lock(),
+                **reset_solve_state(),
             }
 
         dt_ms = (time.perf_counter() - t0) * 1000
+        # keep a light log for observability
         print(f"[{route_id}] LLM elapsed: {dt_ms:.1f} ms")
 
         # Count one "solving attempt" each time we send an LLM answer back.
@@ -109,11 +117,11 @@ def make_route_subgraph(route_id: str) -> StateGraph:
         if not answer_text:
             answer_text = "Entiendo. ¿Podés darme un poco más de detalle para ayudarte mejor?"
 
-        return {
+        updates = {
             "messages": [AIMessage(content=answer_text)],
             "solve_attempts": solve_attempts_so_far,
-            "attempts": solve_attempts_so_far,  # legacy
         }
+        return set_legacy_attempts(updates, solve_attempts=solve_attempts_so_far)
 
     # --- Graph Construction ---
     g = StateGraph(ChatState)
