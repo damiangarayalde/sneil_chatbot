@@ -115,32 +115,15 @@ def make_route_subgraph(route_id: str) -> StateGraph:
             "attempts": solve_attempts_so_far,  # legacy
         }
 
-    def confirm(state: ChatState) -> ChatState:
-        """Ask for a simple confirmation after providing an answer.
-
-        Kept separate from `generate()` so:
-        - attempts are incremented ONLY once per solve attempt (in `generate`)
-        - UI/tests can display answer + confirmation as two messages
-        """
-        if state.get("locked_route") is None:
-            return {}
-        if state.get("escalated_to_human"):
-            return {}
-
-        msg = "¿Te sirvió? Respondé **sí** si quedó resuelto, o contame qué sigue pasando."
-        return {"messages": [AIMessage(content=msg)]}
-
     # --- Graph Construction ---
     g = StateGraph(ChatState)
 
     g.add_node("retrieve", retrieve)
     g.add_node("generate", generate)
-    g.add_node("confirm", confirm)
 
     g.add_conditional_edges(START, route_from_start, {
                             "retrieve": "retrieve", "generate": "generate"})
     g.add_edge("retrieve", "generate")
-    g.add_edge("generate", "confirm")
-    g.add_edge("confirm", END)
+    g.add_edge("generate", END)
 
     return g.compile()
