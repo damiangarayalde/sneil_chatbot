@@ -13,7 +13,6 @@ from app.core.graph.state import (
     ChatState,
     clear_lock,
     reset_solve_state,
-    set_legacy_attempts,
     get_history_and_last_msg,
     get_last_msg,
 )
@@ -117,11 +116,10 @@ def make_route_subgraph(route_id: str) -> StateGraph:
         if not answer_text:
             answer_text = "Entiendo. ¿Podés darme un poco más de detalle para ayudarte mejor?"
 
-        updates = {
+        return {
             "messages": [AIMessage(content=answer_text)],
             "solve_attempts": solve_attempts_so_far,
         }
-        return set_legacy_attempts(updates, solve_attempts=solve_attempts_so_far)
 
     # --- Graph Construction ---
     g = StateGraph(ChatState)

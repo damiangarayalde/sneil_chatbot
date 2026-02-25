@@ -14,7 +14,6 @@ from app.core.graph.state import (
     lock_route,
     reset_routing_state,
     reset_solve_state,
-    set_legacy_attempts,
 )
 from app.core.graph.msg_heuristics_no_llm import (
     asked_for_human,
@@ -131,14 +130,12 @@ def node__handoff(state: ChatState) -> ChatState:
         "Disculpá — para no hacerte perder tiempo, mejor lo pasamos con una persona.\n\n"
         f"{escalation_message()}"
     )
-    updates = {
+    return {
         "messages": [AIMessage(content=msg)],
         "escalated_to_human": True,
         **reset_routing_state(),
         **reset_solve_state(),
     }
-    # keep legacy counter consistent (temporary)
-    return set_legacy_attempts(updates, solve_attempts=0)
 
 
 def route_from_start_precheck(state: ChatState) -> str:
@@ -206,13 +203,11 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
     # cheap direct routing (keywords, route mentions, etc.)
     direct = direct_route_from_keywords(last_message, ALLOWED_ROUTES)
     if direct:
-        updates = lock_route(
+        return lock_route(
             direct,
             confidence=1.0,
             max_solve_attempts=_max_solve_attempts_for_route(direct),
         )
-        # legacy counter (temporary)
-        return set_legacy_attempts(updates, solve_attempts=0)
 
     # LLM classifier
     meta_text = f"routing_attempts={routing_attempts}\n"

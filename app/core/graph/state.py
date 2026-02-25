@@ -108,12 +108,3 @@ def clear_lock() -> Dict[str, Any]:
         "locked_route": None,
         "confidence": 0.0,
     }
-
-
-def set_legacy_attempts(updates: Dict[str, Any], *, solve_attempts: int) -> Dict[str, Any]:
-    """
-    Temporary compatibility shim: some older code expects a top-level `attempts`.
-    Keep it consistent from one place while you migrate callers.
-    """
-    updates["attempts"] = int(solve_attempts)
-    return updates
