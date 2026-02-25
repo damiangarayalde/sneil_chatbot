@@ -34,8 +34,8 @@ class ChatState(TypedDict, total=False):
     routing_attempts: int   # classifier/disambiguation attempts
     solve_attempts: int     # answer attempts inside locked route
 
-    # (TEMP) legacy counter — keep during migration so old code won’t break.
-    attempts: int
+    # # (TEMP) legacy counter — keep during migration so old code won’t break.
+    # attempts: int
 
     # Optional per-route solve threshold to allow high-level gating later
     max_solve_attempts: Optional[int]

@@ -1,7 +1,12 @@
 from langgraph.graph import StateGraph, START, END
 from app.core.graph.state import ChatState
 from app.core.graph.nodes.route_subgraph import make_route_subgraph
-from app.core.graph.nodes.hub import node__classify_user_intent
+from app.core.graph.nodes.hub import (
+    node__classify_user_intent,
+    node__clarify,
+    node__handoff,
+    route_from_start_precheck,
+)
 from app.core.graph.nodes.end_of_turn import node__end_of_turn
 from app.core.graph.flow_logging import wrap_node
 from app.core.utils import get_routes
@@ -10,7 +15,6 @@ from app.core.persistence import get_sqlite_checkpointer
 from app.core.graph.routes import (
     route_node,
     handler_edge_map,
-    route_from_start,
     route_after_hub,
     route_after_handler,
     end_turn_node,
@@ -34,6 +38,8 @@ def build_graph() -> StateGraph:
 
     # Hub (intent classification + triage question)
     g.add_node("hub", wrap_node("hub", node__classify_user_intent))
+    g.add_node("clarify", wrap_node("clarify", node__clarify))
+    g.add_node("handoff", wrap_node("handoff", node__handoff))
 
     # Spokes - Route-specific handler subgraphs
     for route in ROUTES:
@@ -41,20 +47,23 @@ def build_graph() -> StateGraph:
             route_node(route), subgraphs[route]))
 
     # End-of-turn finalizer (state hygiene + END)
-    g.add_node(end_turn_node(), wrap_node(
-        end_turn_node(), node__end_of_turn))
+    g.add_node(end_turn_node(), wrap_node(end_turn_node(), node__end_of_turn))
 
-    # --------------------------------------------------------------------------------------------
-    # Edges
+    # START -> precheck router
+    start_map = {"hub": "hub", "clarify": "clarify", "handoff": "handoff"}
+    start_map.update(handler_edge_map(ROUTES))  # handlers by name
+    g.add_conditional_edges(START, route_from_start_precheck, start_map)
 
-    start_map = {"hub": "hub"}
-    start_map.update(handler_edge_map(ROUTES))
-    g.add_conditional_edges(START, route_from_start, start_map)
+    # clarify/handoff end the turn
+    g.add_edge("clarify", end_turn_node())
+    g.add_edge("handoff", end_turn_node())
 
+    # hub -> handler or end_of_turn
     after_hub_map = {end_turn_node(): end_turn_node()}
     after_hub_map.update(handler_edge_map(ROUTES))
     g.add_conditional_edges("hub", route_after_hub, after_hub_map)
 
+    # handler -> hub if topic switch else end_of_turn
     for r in ROUTES:
         g.add_conditional_edges(
             route_node(r),

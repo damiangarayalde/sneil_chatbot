@@ -15,11 +15,11 @@ def is_locked(state: ChatState) -> bool:
     return is_valid_route(state.get("locked_route"))
 
 
-def route_from_start(state: ChatState) -> str:
-    """START router: go straight to handler if locked, else to hub."""
-    if is_locked(state):
-        return route_node(state.get("locked_route"))
-    return "hub"
+# def route_from_start(state: ChatState) -> str:
+#     """START router: go straight to handler if locked, else to hub."""
+#     if is_locked(state):
+#         return route_node(state.get("locked_route"))
+#     return "hub"
 
 
 def route_after_hub(state: ChatState) -> str:

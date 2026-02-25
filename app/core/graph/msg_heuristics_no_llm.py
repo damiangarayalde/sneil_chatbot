@@ -27,13 +27,10 @@ from app.core.utils import (
 # Low-info / small talk
 
 LOW_INFO_MSGS = {
-    "hola", "buenas", "buen día", "buen dia", "buenas tardes", "buenas noches",
-    "ok", "oka", "dale", "listo", "joya", "perfecto", "bien",
-    "si", "sí", "no", "seguro", "claro", "gracias", "👍", "👌", "🙏"
+    "hola", "buenas", "buen día", "buen dia", "buenas tardes", "buenas noches"  # ,
+    # "ok", "oka", "dale", "listo", "joya", "perfecto", "bien",
+    #  "si", "sí", "no", "seguro", "claro", "gracias", "👍", "👌", "🙏"
 }
-
-_ACK_RE = re.compile(
-    r"^(si|sí|no|ok|dale|listo|perfecto|gracias)[.!? ]*$", re.IGNORECASE)
 
 
 def normalize(text: str) -> str:
@@ -48,9 +45,6 @@ def is_low_info(text: str) -> bool:
         return True
     if t in LOW_INFO_MSGS:
         return True
-    # Uncomment if you want strict matching for short acknowledgements:
-    # if _ACK_RE.fullmatch(t):
-    #     return True
     return False
 
 

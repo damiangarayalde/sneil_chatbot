@@ -8,13 +8,7 @@ from langgraph.graph import StateGraph, START, END
 from langchain_core.messages import AIMessage
 
 from app.core.graph.state import ChatState, get_history_and_last_msg, get_last_msg
-from app.core.graph.msg_heuristics_no_llm import (
-    asked_for_human,
-    escalation_message,
-    route_disambiguation_question,
-    should_retrieve,
-    wrap_with_greeting,
-)
+from app.core.graph.msg_heuristics_no_llm import should_retrieve
 from app.core.prompts.builders import make_chat_prompt_for_route
 from app.core.utils import init_llm
 from app.core.tools.rag import get_retriever
@@ -31,8 +25,7 @@ class HandlerOutput(BaseModel):
     - Otherwise we send back an answer.
     """
     is_topic_switch: bool = Field(
-        description="True if the user changed the topic to a different product."
-    )
+        description="True if the user changed the topic to a different product.")
     answer: str = Field(
         description="The response to the user. Empty if is_topic_switch is True."
     )
@@ -52,56 +45,12 @@ def make_route_subgraph(route_id: str) -> StateGraph:
 
     # Initialize LLM and Prompt
     llm = init_llm(model="gpt-4o-mini", temperature=0)
-    prompt_template, route_cfg = make_chat_prompt_for_route(route_id)
+    prompt_template, _route_cfg = make_chat_prompt_for_route(route_id)
     chain = prompt_template | llm.with_structured_output(HandlerOutput)
 
-    # Max number of iterative solution attempts before we suggest human handoff.
-    max_attempts_before_handoff = int(
-        route_cfg.get("max_attempts_before_handoff") or 0)
-
-    def route_from_start(state: ChatState) -> Literal["handoff", "clarify", "retrieve"]:
-        """Single decision point at START."""
+    def route_from_start(state: ChatState) -> Literal["retrieve", "generate"]:
         last_msg = get_last_msg(state.get("messages") or [])
-        solve_attempts = int(state.get("solve_attempts") or 0)
-
-        # 0) explicit human request always wins
-        if asked_for_human(last_msg):
-            return "handoff"
-
-        # 1) max attempts gate (check BEFORE any solving work)
-        if max_attempts_before_handoff and solve_attempts >= max_attempts_before_handoff:
-            return "handoff"
-
-        # 2) first attempt and vague message => clarifying question (no RAG, no attempts increment)
-        if solve_attempts == 0 and not should_retrieve(last_msg):
-            return "clarify"
-
-        # 3) otherwise, solve path (always includes retrieval)
-        return "retrieve"
-
-    def handoff(state: ChatState) -> ChatState:
-        """Apologize + recommend human support. Reset attempts."""
-        msg = (
-            "Disculpá — intenté ayudarte, pero me falta información o no puedo confirmar una solución con lo que tengo.\n\n"
-            f"{escalation_message()}"
-        )
-        return {
-            "messages": [AIMessage(content=msg)],
-            "solve_attempts": 0,
-            "attempts": 0,  # legacy
-            "escalated_to_human": True,
-            "locked_route": None,
-            "confidence": 0,
-            "retrieved": None,
-        }
-
-    def clarify(state: ChatState) -> ChatState:
-        """Ask for clarification using heuristics (no LLM, no RAG)."""
-        q = route_disambiguation_question(route_id)
-        return {
-            "messages": [AIMessage(content=wrap_with_greeting(q))],
-            "retrieved": None,
-        }
+        return "retrieve" if should_retrieve(last_msg) else "generate"
 
     def retrieve(state: ChatState) -> ChatState:
         """Retrieve context documents for the route based on the user query."""
@@ -140,13 +89,14 @@ def make_route_subgraph(route_id: str) -> StateGraph:
             }
         )
 
+        # Topic switch => clear lock so hub can re-route next
         if response.is_topic_switch:
             return {
                 "locked_route": None,
                 "retrieved": None,
                 "confidence": 0,
                 "solve_attempts": 0,
-                "attempts": 0,  # legacy
+                "max_solve_attempts": None,
             }
 
         dt_ms = (time.perf_counter() - t0) * 1000
@@ -159,13 +109,10 @@ def make_route_subgraph(route_id: str) -> StateGraph:
         if not answer_text:
             answer_text = "Entiendo. ¿Podés darme un poco más de detalle para ayudarte mejor?"
 
-        escalated = bool(state.get("escalated_to_human", False))
-
         return {
             "messages": [AIMessage(content=answer_text)],
             "solve_attempts": solve_attempts_so_far,
             "attempts": solve_attempts_so_far,  # legacy
-            "escalated_to_human": escalated,
         }
 
     def confirm(state: ChatState) -> ChatState:
@@ -175,10 +122,9 @@ def make_route_subgraph(route_id: str) -> StateGraph:
         - attempts are incremented ONLY once per solve attempt (in `generate`)
         - UI/tests can display answer + confirmation as two messages
         """
-        # If we already escalated or we cleared the lock (topic switch), don't ask.
-        if state.get("escalated_to_human"):
-            return {}
         if state.get("locked_route") is None:
+            return {}
+        if state.get("escalated_to_human"):
             return {}
 
         msg = "¿Te sirvió? Respondé **sí** si quedó resuelto, o contame qué sigue pasando."
@@ -187,26 +133,14 @@ def make_route_subgraph(route_id: str) -> StateGraph:
     # --- Graph Construction ---
     g = StateGraph(ChatState)
 
-    g.add_node("handoff", handoff)
-    g.add_node("clarify", clarify)
     g.add_node("retrieve", retrieve)
     g.add_node("generate", generate)
     g.add_node("confirm", confirm)
 
-    # Start decision (gate + clarify vs solve)
-    g.add_conditional_edges(
-        START,
-        route_from_start,
-        {
-            "handoff": "handoff",
-            "clarify": "clarify",
-            "retrieve": "retrieve",
-        },
-    )
-
-    g.add_edge("handoff", END)
-    g.add_edge("clarify", END)
+    g.add_conditional_edges(START, route_from_start, {
+                            "retrieve": "retrieve", "generate": "generate"})
     g.add_edge("retrieve", "generate")
     g.add_edge("generate", "confirm")
     g.add_edge("confirm", END)
+
     return g.compile()

@@ -3,7 +3,7 @@ from typing import Literal, Optional
 from pydantic import BaseModel, Field, field_validator
 from langchain_core.messages import AIMessage
 
-from app.core.graph.state import ChatState, get_history_and_last_msg
+from app.core.graph.state import ChatState, get_history_and_last_msg, get_last_msg
 from app.core.graph.msg_heuristics_no_llm import (
     asked_for_human,
     default_clarifier,
@@ -15,6 +15,7 @@ from app.core.graph.msg_heuristics_no_llm import (
 )
 from app.core.prompts.builders import make_chat_prompt_for_route
 from app.core.utils import init_llm, get_routes, is_valid_route
+from app.core.graph.routes import route_node
 
 
 ALLOWED_ROUTES = set(get_routes())
@@ -49,10 +50,112 @@ classifier_prompt, classifier_cfg = make_chat_prompt_for_route("CLASSIFIER")
 chain = classifier_prompt | llm.with_structured_output(ClassifierOutput)
 
 # Max number of iterative solution attempts before we suggest human handoff.
-max_attempts_before_handoff = int(
+max_routing_attempts_before_handoff = int(
     classifier_cfg.get("max_attempts_before_handoff") or 0)
 route_lock_threshold = float(classifier_cfg.get("route_lock_threshold") or 0.7)
 
+
+def _max_solve_attempts_for_route(route_id: str) -> int:
+    # Reads route cfg to store threshold in state when locking
+    # improve evitando built promp only to get to config
+    _prompt, cfg = make_chat_prompt_for_route(route_id)
+    return int(cfg.get("max_attempts_before_handoff") or 0)
+
+
+# -------------------------------------------------------------------------
+# High-level nodes (NEW)
+# -------------------------------------------------------------------------
+
+def node__clarify(state: ChatState) -> ChatState:
+    """
+    Clarify when user msg is too short / low info.
+    Works for both:
+      - before routing is locked (generic clarifier)
+      - after routing is locked (route-specific disambiguation question)
+    """
+    locked = state.get("locked_route")
+    if is_valid_route(locked):
+        q = route_disambiguation_question(locked)
+        text = wrap_with_greeting(q)
+    else:
+        # default_clarifier already designed for triage style
+        text = default_clarifier()
+
+    return {
+        "messages": [AIMessage(content=text)],
+        "retrieved": None,
+    }
+
+
+def node__handoff(state: ChatState) -> ChatState:
+    """
+    Handoff when:
+      - user asks for human
+      - routing attempts exceeded
+      - solve attempts exceeded for locked route
+    Resets locks and attempts. 
+
+    the answer should be different if the user requested for assistance or we have exceeded the attempts
+    """
+    msg = (
+        "Disculpá — para no hacerte perder tiempo, mejor lo pasamos con una persona.\n\n"
+        f"{escalation_message()}"
+    )
+    return {
+        "messages": [AIMessage(content=msg)],
+        "escalated_to_human": True,
+        "locked_route": None,
+        "confidence": 0,
+        "estimated_route": None,
+        "retrieved": None,
+        "routing_attempts": 0,
+        "solve_attempts": 0,
+        "max_solve_attempts": None,
+    }
+
+
+def route_from_start_precheck(state: ChatState) -> str:
+    """
+    START router:
+      1) handoff (human request / attempts exceeded)
+      2) clarify (low info)
+      3) if locked => route handler
+      4) else => hub
+    """
+    last_msg = get_last_msg(state.get("messages") or [])
+
+    routing_attempts = int(state.get("routing_attempts") or 0)
+    solve_attempts = int(state.get("solve_attempts") or 0)
+    max_solve_attempts = int(state.get("max_solve_attempts") or 0)
+
+    locked = state.get("locked_route")
+
+    # 1) explicit human request always wins
+    if asked_for_human(last_msg):
+        return "handoff"
+
+    # 2) routing attempts cap
+    if max_routing_attempts_before_handoff and routing_attempts >= max_routing_attempts_before_handoff:
+        return "handoff"
+
+    # 3) solve attempts cap (only if locked)
+    if is_valid_route(locked) and max_solve_attempts and solve_attempts >= max_solve_attempts:
+        return "handoff"
+
+    # 4) low-info clarify (generic or route-specific)
+    if is_low_info(last_msg):
+        return "clarify"
+
+    # 5) locked => handler, else hub
+    if is_valid_route(locked):
+        return route_node(locked)
+
+    return "hub"
+
+
+# -------------------------------------------------------------------------
+# Hub classifier node (now ONLY classification + route lock)
+# -------------------------------------------------------------------------
 
 def node__classify_user_intent(state: ChatState) -> ChatState:
     """Hub / classifier node.
@@ -69,6 +172,8 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
 
     locked = state.get("locked_route")
     if is_valid_route(locked):
+
+        print(" AT HUB:   LOCKED ROUTE , XXXXXXXXXX")
         return {}
 
     prior_messages, last_message = get_history_and_last_msg(
@@ -77,20 +182,9 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
 
     routing_attempts = int(state.get("routing_attempts") or 0)
 
-    # (still here in Step 1) escalation
-    if routing_attempts >= max_attempts_before_handoff or asked_for_human(last_message):
-        return {
-            "escalated_to_human": True,
-            "routing_attempts": 0,
-            "solve_attempts": 0,
-            "attempts": 0,  # legacy
-            "messages": [AIMessage(content=escalation_message())],
-        }
-
     # cheap direct routing
     direct = direct_route_from_keywords(last_message, ALLOWED_ROUTES)
     if direct:
-        # For now, don’t set max_solve_attempts yet (we’ll do it in Step 3 cleanly)
         return {
             "confidence": 1.0,
             "estimated_route": direct,
@@ -98,15 +192,7 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
             "routing_attempts": 0,
             "solve_attempts": 0,
             "attempts": 0,  # legacy
-        }
-
-    # low-info => don't lock
-    if is_low_info(last_message):
-        return {
-            "confidence": 0.0,
-            "routing_attempts": routing_attempts,  # low info doesn't count
-            "attempts": routing_attempts,          # legacy
-            "messages": [AIMessage(content=default_clarifier())],
+            "max_solve_attempts": _max_solve_attempts_for_route(direct),
         }
 
     # LLM classifier
@@ -122,15 +208,17 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
 
     has_clarifier = bool((result.clarifying_question or "").strip())
     if (not has_clarifier) and float(result.confidence) >= route_lock_threshold:
+        route_id = result.estimated_route
         return {
             "confidence": float(result.confidence),
-            "estimated_route": result.estimated_route,
-            "locked_route": result.estimated_route,
+            "estimated_route": route_id,
+            "locked_route": route_id,
             "routing_attempts": 0,
             "solve_attempts": 0,
-            "attempts": 0,  # legacy
+            "max_solve_attempts": _max_solve_attempts_for_route(route_id),
         }
 
+    # low confidence => ask a routing question (counts as routing_attempt)
     question = (result.clarifying_question or "").strip() or route_disambiguation_question(
         result.estimated_route
     )
@@ -138,6 +226,5 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
         "confidence": float(result.confidence),
         "estimated_route": result.estimated_route,
         "routing_attempts": routing_attempts + 1,
-        "attempts": routing_attempts + 1,  # legacy
         "messages": [AIMessage(content=wrap_with_greeting(question))],
     }

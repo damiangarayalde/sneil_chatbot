@@ -1,5 +1,7 @@
 {
-    "node_ref": "app.core.graph.nodes.route_subgraph:node__route_clarify",
+    "node_ref": "app.core.graph.nodes.route_subgraph:make_route_subgraph",
+    "route_id": "AA",
+    "node_name": "clarify",
     "scenarios": [
         {
             "id": "clarify_1",
