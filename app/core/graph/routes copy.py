@@ -5,11 +5,6 @@ from app.core.graph.state import ChatState
 from app.core.utils import is_valid_route
 
 
-def route_node(route: str) -> str:
-    """Canonical node name for a route handler."""
-    return f"handle__{route}"
-
-
 def is_locked(state: ChatState) -> bool:
     """True when state has a valid locked_route."""
     return is_valid_route(state.get("locked_route"))
@@ -45,8 +40,3 @@ def route_after_handler(state: ChatState) -> str:
 def handler_edge_map(routes: list[str]) -> Dict[str, str]:
     """Mapping used by add_conditional_edges for all handler nodes."""
     return {route_node(r): route_node(r) for r in routes}
-
-
-def end_turn_node() -> str:
-    """Single place to define the end-of-turn node name."""
-    return "end_of_turn"

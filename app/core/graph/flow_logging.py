@@ -8,7 +8,7 @@ from app.core.graph.state import ChatState
 
 # Routing helpers (to predict the "next" node for clearer logs).
 # NOTE: These are pure functions and safe to call here.
-from app.core.graph.routes import end_turn_node
+from app.core.graph.routing_edges import end_turn_node
 
 # ---- Logging config ----
 _MAX_STR = 110   # max chars shown for any string-ish value
