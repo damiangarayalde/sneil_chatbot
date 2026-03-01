@@ -15,7 +15,7 @@
             "setup": {
                 "route_id": "AA",
                 "initial_state": {
-                    "attempts": 0,
+                    "solve_attempts": 0,
                     "locked_route": "AA",
                     "retrieved": [
                         {

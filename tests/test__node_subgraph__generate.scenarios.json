@@ -5,7 +5,7 @@
     "scenarios": [
         {
             "id": "generate_1",
-            "title": "Topic switch clears lock, attempts, confidence, and retrieved",
+            "title": "Topic switch clears lock, solve_attempts, confidence, and retrieved",
             "tags": [
                 "route_subgraph",
                 "generate",
@@ -15,7 +15,7 @@
             "setup": {
                 "route_id": "TPMS",
                 "initial_state": {
-                    "attempts": 2,
+                    "solve_attempts": 2,
                     "locked_route": "TPMS",
                     "confidence": 0.7,
                     "retrieved": [
@@ -44,7 +44,7 @@
                         "action": "noop",
                         "state": {
                             "locked_route": null,
-                            "attempts": 0,
+                            "solve_attempts": 0,
                             "confidence": 0,
                             "retrieved": null
                         }
@@ -54,7 +54,7 @@
         },
         {
             "id": "generate_2",
-            "title": "Normal answer increments attempts and returns AI message",
+            "title": "Normal answer increments solve_attempts and returns AI message",
             "tags": [
                 "route_subgraph",
                 "generate",
@@ -64,7 +64,7 @@
             "setup": {
                 "route_id": "AA",
                 "initial_state": {
-                    "attempts": 0,
+                    "solve_attempts": 0,
                     "locked_route": "AA",
                     "retrieved": [
                         {
@@ -90,13 +90,13 @@
                     "user_msg": "No enfría y hace ruido",
                     "expect": {
                         "state": {
-                            "attempts": 1,
+                            "solve_attempts": 1,
                             "locked_route": "AA"
                         },
                         "assistant": {
                             "contains": [
-                                "limpiar",
-                                "filtro"
+                                "diagnosticar",
+                                "falla"
                             ]
                         }
                     }
@@ -105,7 +105,7 @@
         },
         {
             "id": "generate_3",
-            "title": "Empty answer triggers fallback message and still increments attempts",
+            "title": "Empty answer triggers fallback message and still increments solve_attempts",
             "tags": [
                 "route_subgraph",
                 "generate",
@@ -115,7 +115,7 @@
             "setup": {
                 "route_id": "AA",
                 "initial_state": {
-                    "attempts": 1,
+                    "solve_attempts": 1,
                     "locked_route": "AA",
                     "retrieved": [
                         {
@@ -141,7 +141,7 @@
                     "user_msg": "ok",
                     "expect": {
                         "state": {
-                            "attempts": 2
+                            "solve_attempts": 2
                         },
                         "assistant": {
                             "contains": [

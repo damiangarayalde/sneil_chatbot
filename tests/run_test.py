@@ -262,7 +262,8 @@ def _assert_expect(state: Dict[str, Any], expect: Dict[str, Any]) -> None:
             " locked_route = " + SET_CYAN + f"{state.get('locked_route')}" + RESET_COLOR +
             " estimated_route = " + SET_CYAN + f"{state.get('estimated_route')} " + RESET_COLOR +
             " escalated_to_human = " + SET_CYAN + f"{state.get('escalated_to_human')}" + RESET_COLOR +
-            " attempts = " + SET_CYAN + f"{state.get('attempts')} " + RESET_COLOR +
+            " routing_attempts = " + SET_CYAN + f"{state.get('routing_attempts')} " + RESET_COLOR +
+            " solve_attempts = " + SET_CYAN + f"{state.get('solve_attempts')} " + RESET_COLOR +
             " confidence = " + SET_CYAN + f"{state.get('confidence')}" + RESET_COLOR + "\n" +
             SET_BLUE + "  - last_ai = " + SET_CYAN +
             f"{repr(last_ai)}" + RESET_COLOR
@@ -308,8 +309,11 @@ def run_scenario(node_fn: NodeFn, s: Scenario) -> Dict[str, Any]:
                 f"{state.get('estimated_route')}" + RESET_COLOR + "\t confidence: " +
                 SET_CYAN + f"{state.get('confidence')} " + RESET_COLOR
             )
-        print(SET_BLUE + "  _output_ " + RESET_COLOR + "state.attempts: " + SET_CYAN +
-              f"{state.get("attempts")}" + RESET_COLOR)
+        print(SET_BLUE + "  _output_ " + RESET_COLOR + "state.routing_attempts: " + SET_CYAN +
+              f"{state.get("routing_attempts")}" + RESET_COLOR)
+        print(SET_BLUE + "  _output_ " + RESET_COLOR + "state.solve_attempts: " + SET_CYAN +
+              f"{state.get("solve_attempts")}" + RESET_COLOR)
+
         print(SET_BLUE + "  _output_ " + RESET_COLOR + "state.escalated_to_human: " + SET_CYAN +
               f"{state.get("escalated_to_human")}" + RESET_COLOR)
         if last_ai:
@@ -329,7 +333,8 @@ def run_scenario(node_fn: NodeFn, s: Scenario) -> Dict[str, Any]:
                     "No expectation in one_of matched\n"
                     f" - one_of: {options}\n"
                     f" - got: locked_route={state.get('locked_route')} estimated_route={state.get('estimated_route')} "
-                    f" escalated_to_human={state.get('escalated_to_human')} attempts={state.get('attempts')} "
+                    f" escalated_to_human={state.get('escalated_to_human')}"
+                    f" routing_attempts={state.get('routing_attempts')} solve_attempts={state.get('solve_attempts')} "
                     f" confidence={state.get('confidence')} last_ai={repr(last_ai)}"
                 )
         else:
