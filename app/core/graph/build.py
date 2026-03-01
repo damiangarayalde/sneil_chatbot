@@ -1,6 +1,6 @@
 from langgraph.graph import StateGraph, START, END
 from app.core.graph.state import ChatState
-from app.core.graph.nodes.route_subgraph import make_route_subgraph
+from app.core.graph.routes.factory import make_route_subgraph
 from app.core.graph.hub.policies import route_from_start_precheck
 from app.core.graph.hub.nodes import (
     node__classify_user_intent,

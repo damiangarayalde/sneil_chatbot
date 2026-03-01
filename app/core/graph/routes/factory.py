@@ -6,7 +6,6 @@ from typing import Literal
 
 from langchain_core.messages import AIMessage
 from langgraph.graph import END, START, StateGraph
-from pydantic import BaseModel, Field
 
 from app.core.graph.msg_heuristics_no_llm import should_retrieve
 from app.core.graph.state import (
@@ -16,36 +15,10 @@ from app.core.graph.state import (
     get_history_and_last_msg,
     get_last_msg,
 )
-from app.core.prompts.builders import make_chat_prompt_for_route
 from app.core.tools.rag import get_retriever
-from app.core.utils import init_llm
 # from app.tools.catalog_tool import catalog_lookup
 
-# -----------------------------------------------------------------------------
-# Structured output schema for the route handler
-
-
-class HandlerOutput(BaseModel):
-    """Route handler output.
-
-    - If the user switched product/topic, we want to clear lock so hub can re-route.
-    - Otherwise we send back an answer.
-    """
-
-    is_topic_switch: bool = Field(
-        description="True if the user changed the topic to a different product."
-    )
-    answer: str = Field(
-        description="The response to the user. Empty if is_topic_switch is True."
-    )
-
-
-@lru_cache(maxsize=64)
-def _get_route_chain(route_id: str):
-    """Build route handler chain lazily and cache it."""
-    llm = init_llm(model="gpt-4o-mini", temperature=0)
-    prompt_template, _route_cfg = make_chat_prompt_for_route(route_id)
-    return prompt_template | llm.with_structured_output(HandlerOutput)
+from .chain import get_route_chain
 
 
 @lru_cache(maxsize=64)
@@ -53,14 +26,14 @@ def _get_route_retriever(route_id: str, k: int = 3):
     return get_retriever(route_id, k=k)
 
 
-def make_route_subgraph(route_id: str) -> StateGraph:
+def make_route_subgraph(route_id: str):
     """Construct a StateGraph subgraph for a given locked route.
 
     Intended behavior:
     1) START chooses retrieve vs generate based on heuristics.
-    2) retrieve (optional) -> generate -> confirm -> END
+    2) retrieve (optional) -> generate -> END
     """
-    chain = _get_route_chain(route_id)
+    chain = get_route_chain(route_id)
 
     def route_from_start(state: ChatState) -> Literal["retrieve", "generate"]:
         last_msg = get_last_msg(state.get("messages") or [])
@@ -106,7 +79,6 @@ def make_route_subgraph(route_id: str) -> StateGraph:
             }
 
         dt_ms = (time.perf_counter() - t0) * 1000
-        # keep a light log for observability
         print(f"[{route_id}] LLM elapsed: {dt_ms:.1f} ms")
 
         # Count one "solving attempt" each time we send an LLM answer back.
@@ -121,14 +93,16 @@ def make_route_subgraph(route_id: str) -> StateGraph:
             "solve_attempts": solve_attempts_so_far,
         }
 
-    # --- Graph Construction ---
     g = StateGraph(ChatState)
 
     g.add_node("retrieve", retrieve)
     g.add_node("generate", generate)
 
-    g.add_conditional_edges(START, route_from_start, {
-                            "retrieve": "retrieve", "generate": "generate"})
+    g.add_conditional_edges(
+        START,
+        route_from_start,
+        {"retrieve": "retrieve", "generate": "generate"},
+    )
     g.add_edge("retrieve", "generate")
     g.add_edge("generate", END)
 
