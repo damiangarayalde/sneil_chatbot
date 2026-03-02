@@ -8,7 +8,7 @@ from app.core.graph.state import ChatState
 
 # Routing helpers (to predict the "next" node for clearer logs).
 # NOTE: These are pure functions and safe to call here.
-from app.core.graph.routing_edges import end_turn_node
+from app.core.graph.nodes import end_turn_node_name
 
 # ---- Logging config ----
 _MAX_STR = 110   # max chars shown for any string-ish value
@@ -67,7 +67,7 @@ def _render_flow_bar(current_node: str, merged_state: Dict[str, Any]) -> str:
     hub_node = "hub"
     hub_label = "triage"
 
-    finalize_name = end_turn_node()
+    finalize_name = end_turn_node_name()
     handler = _handle_label(merged_state)
     if current_node.startswith("handle__"):
         handler = current_node

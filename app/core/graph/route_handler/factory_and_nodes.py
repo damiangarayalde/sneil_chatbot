@@ -26,6 +26,11 @@ def _get_route_retriever(route_id: str, k: int = 3):
     return get_retriever(route_id, k=k)
 
 
+def route_node_name(route: str) -> str:
+    """Canonical node name for a route handler."""
+    return f"handle__{route}"
+
+
 def make_route_subgraph(route_id: str):
     """Construct a StateGraph subgraph for a given locked route.
 
