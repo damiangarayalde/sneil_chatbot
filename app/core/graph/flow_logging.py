@@ -59,23 +59,23 @@ def _handle_label(s: Dict[str, Any]) -> str:
 def _render_flow_bar(current_node: str, merged_state: Dict[str, Any]) -> str:
     """Render the current architecture flow:
 
-    START -> hub -> handle__{route}? -> finalize_turn -> END
+    START -> classifier -> handle__{route}? -> finalize_turn -> END
 
     - START/END are always inactive (dim), since they are not executed as nodes.
-    - The handler slot is filled with handle__<locked_route> once the hub locks.
+    - The handler slot is filled with handle__<locked_route> once the classifier locks.
     """
-    hub_node = "hub"
-    hub_label = "triage"
+    classifier_node = "classifier"
+    classifier_label = "triage"
 
     finalize_name = end_turn_node_name()
     handler = _handle_label(merged_state)
     if current_node.startswith("handle__"):
         handler = current_node
 
-    labels = ["START", hub_label, handler, finalize_name, "END"]
+    labels = ["START", classifier_node, handler, finalize_name, "END"]
 
-    if current_node == hub_node:
-        current_label = hub_label
+    if current_node == classifier_node:
+        current_label = classifier_node
     elif current_node.startswith("handle__"):
         current_label = handler
     elif current_node == finalize_name:

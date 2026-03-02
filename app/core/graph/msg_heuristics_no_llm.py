@@ -6,7 +6,6 @@ This module started as `small_talk_filter.py` and now also hosts:
 - cheap keyword-based direct routing
 - default clarifier + route disambiguation questions
 
-Goal: keep `hub.py` lean and push lists/regex/helpers here.
 """
 
 from __future__ import annotations

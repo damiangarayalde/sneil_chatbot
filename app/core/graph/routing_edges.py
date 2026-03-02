@@ -15,14 +15,14 @@ def is_locked(state: ChatState) -> bool:
 
 
 # def route_from_start(state: ChatState) -> str:
-#     """START router: go straight to handler if locked, else to hub."""
+#     """START router: go straight to handler if locked, else to classifier."""
 #     if is_locked(state):
 #         return route_node(state.get("locked_route"))
-#     return "hub"
+#     return "classifier"
 
 
-def route_after_hub(state: ChatState) -> str:
-    """After hub:
+def route_after_classifier(state: ChatState) -> str:
+    """After classifier:
     - If we locked a route: run its handler.
     - Otherwise: end the current invocation (we may be at triage).
     """
@@ -33,11 +33,11 @@ def route_after_hub(state: ChatState) -> str:
 
 def route_after_handler(state: ChatState) -> str:
     """After a handler:
-    - If handler cleared lock (topic switch): go back to hub.
+    - If handler cleared lock (topic switch): go back to classifier.
     - Otherwise: end the invocation.
     """
     if state.get("locked_route") is None:
-        return "hub"
+        return "classifier"
     return end_turn_node_name()
 
 
@@ -52,7 +52,7 @@ def route_from_start_precheck(state: ChatState) -> str:
       1) handoff (human request / attempts exceeded)
       2) clarify (low info)
       3) if locked => route handler
-      4) else => hub
+      4) else => classifier
     """
     last_msg = get_last_msg(state.get("messages") or [])
 
@@ -79,8 +79,8 @@ def route_from_start_precheck(state: ChatState) -> str:
     if is_low_info(last_msg):
         return "clarify"
 
-    # 5) locked => handler, else hub
+    # 5) locked => handler, else classifier
     if is_valid_route(locked):
         return route_node_name(locked)
 
-    return "hub"
+    return "classifier"

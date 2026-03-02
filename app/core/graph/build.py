@@ -9,7 +9,7 @@ from app.core.persistence import get_sqlite_checkpointer
 
 from app.core.graph.routing_edges import (
     handler_edge_map,
-    route_after_hub,
+    route_after_classifier,
     route_after_handler,
     route_from_start_precheck,
 )
@@ -30,8 +30,9 @@ def build_graph() -> StateGraph:
     # --------------------------------------------------------------------------------------------
     # Nodes
 
-    # Hub (intent classification + triage question)
-    g.add_node("hub", wrap_node("hub", node__classify_user_intent))
+    # Classifier (intent classification + triage question)
+    g.add_node("classifier", wrap_node(
+        "classifier", node__classify_user_intent))
     g.add_node("clarify", wrap_node("clarify", node__clarify))
     g.add_node("handoff", wrap_node("handoff", node__handoff))
 
@@ -45,24 +46,26 @@ def build_graph() -> StateGraph:
         end_turn_node_name(), node__end_of_turn))
 
     # START -> precheck router
-    start_map = {"hub": "hub", "clarify": "clarify", "handoff": "handoff"}
+    start_map = {"classifier": "classifier",
+                 "clarify": "clarify", "handoff": "handoff"}
     start_map.update(handler_edge_map(ROUTES))  # handlers by name
     g.add_conditional_edges(START, route_from_start_precheck, start_map)
 
     # clarify/handoff end the turn
     g.add_edge("clarify", end_turn_node_name())
     g.add_edge("handoff", end_turn_node_name())
-    # hub -> handler or end_of_turn
-    after_hub_map = {end_turn_node_name(): end_turn_node_name()}
-    after_hub_map.update(handler_edge_map(ROUTES))
-    g.add_conditional_edges("hub", route_after_hub, after_hub_map)
+    # classifier -> handler or end_of_turn
+    after_classifier_map = {end_turn_node_name(): end_turn_node_name()}
+    after_classifier_map.update(handler_edge_map(ROUTES))
+    g.add_conditional_edges(
+        "classifier", route_after_classifier, after_classifier_map)
 
     # handler -> hub if topic switch else end_of_turn
     for r in ROUTES:
         g.add_conditional_edges(
             route_node_name(r),
             route_after_handler,
-            {"hub": "hub", end_turn_node_name(): end_turn_node_name()},
+            {"classifier": "classifier", end_turn_node_name(): end_turn_node_name()},
         )
 
     g.add_edge(end_turn_node_name(), END)

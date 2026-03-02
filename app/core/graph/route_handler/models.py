@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 class HandlerOutput(BaseModel):
     """Route handler output.
 
-    - If the user switched product/topic, we want to clear lock so hub can re-route.
+    - If the user switched product/topic, we want to clear lock so classifier can re-route.
     - Otherwise we send back an answer.
     """
 

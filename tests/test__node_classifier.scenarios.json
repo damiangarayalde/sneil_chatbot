@@ -1,5 +1,5 @@
 {
-  "node_ref": "app.core.graph.nodes.hub:node__classify_user_intent",
+  "node_ref": "app.core.graph.classifier.nodes:node__classify_user_intent",
   "scenarios": [
     {
       "id": "Scenario_1",
@@ -11,7 +11,10 @@
       ],
       "setup": {
         "initial_state": {
-          "routing_attempts": 0
+          "routing_attempts": 0,
+          "estimated_route": null,
+          "locked_route": null,
+          "confidence": 0.0
         }
       },
       "turns": [

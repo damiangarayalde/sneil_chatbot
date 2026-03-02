@@ -76,7 +76,7 @@ def make_route_subgraph(route_id: str):
             }
         )
 
-        # Topic switch => clear lock so hub can re-route next
+        # Topic switch => clear lock so classifier can re-route next
         if response.is_topic_switch:
             return {
                 **clear_lock(),

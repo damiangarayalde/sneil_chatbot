@@ -57,7 +57,7 @@ def get_history_and_last_msg(messages: list[BaseMessage]) -> tuple[list[BaseMess
     - `history`: all messages except the last
     - `last_msg`: content of the last message (empty string if missing)
 
-    This keeps a single, shared convention across hub + handlers.
+    This keeps a single, shared convention across classifier + routes.
     """
     if not messages:
         return [], ""
@@ -71,7 +71,7 @@ def get_history_and_last_msg(messages: list[BaseMessage]) -> tuple[list[BaseMess
 # State update helpers (quick-win: keep mutations consistent across nodes)
 
 def reset_routing_state() -> Dict[str, Any]:
-    """Clear routing-related fields so the hub can re-route cleanly."""
+    """Clear routing-related fields so the classifier can re-route cleanly."""
     return {
         "locked_route": None,
         "confidence": 0.0,

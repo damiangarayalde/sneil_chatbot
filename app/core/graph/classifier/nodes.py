@@ -23,7 +23,7 @@ from .models import ALLOWED_ROUTES
 
 
 def node__classify_user_intent(state: ChatState) -> ChatState:
-    """Hub / classifier node.
+    """Classifier node.
 
     Rules (in order):
     1) If already locked -> pass-through
