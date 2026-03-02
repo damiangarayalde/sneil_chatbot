@@ -35,14 +35,15 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
+from numpy import rint
 
 Scenario = Dict[str, Any]
 NodeFn = Callable[[Dict[str, Any]], Dict[str, Any]]
 
-RESET_COLOR = '\033[0m'
-SET_GREEN = '\033[92m'
-SET_CYAN = '\033[96m'
-SET_BLUE = '\033[94m'
+
+def green(text): return f"\033[92m{text}\033[0m"
+def cyan(text): return f"\033[96m{text}\033[0m"
+def blue(text): return f"\033[94m{text}\033[0m"
 # -----------------------------------------------------------------------------
 # Import helpers
 
@@ -256,31 +257,29 @@ def _assert_expect(state: Dict[str, Any], expect: Dict[str, Any]) -> None:
     if not _matches_expect(state, expect):
         last_ai = _last_ai_message(state.get("messages") or [])
         raise AssertionError(
-            SET_BLUE + "  Expectation failed\n" +
-            SET_BLUE + "  - expected: " + RESET_COLOR + f"{expect}\n" +
-            SET_BLUE + "  - got: " + RESET_COLOR +
-            " locked_route = " + SET_CYAN + f"{state.get('locked_route')}" + RESET_COLOR +
-            " estimated_route = " + SET_CYAN + f"{state.get('estimated_route')} " + RESET_COLOR +
-            " escalated_to_human = " + SET_CYAN + f"{state.get('escalated_to_human')}" + RESET_COLOR +
-            " routing_attempts = " + SET_CYAN + f"{state.get('routing_attempts')} " + RESET_COLOR +
-            " solve_attempts = " + SET_CYAN + f"{state.get('solve_attempts')} " + RESET_COLOR +
-            " confidence = " + SET_CYAN + f"{state.get('confidence')}" + RESET_COLOR + "\n" +
-            SET_BLUE + "  - last_ai = " + SET_CYAN +
-            f"{repr(last_ai)}" + RESET_COLOR
-        )
+            blue("  Expectation failed\n") +
+            blue("  - expected: ") + f"{expect}\n" +
+            blue("  - got: ") +
+            " locked_route = " + cyan(f"{state.get('locked_route')}") +
+            " estimated_route = " + cyan(f"{state.get('estimated_route')} ") +
+            " escalated_to_human = " + cyan(f"{state.get('escalated_to_human')}") +
+            " routing_attempts = " + cyan(f"{state.get('routing_attempts')} ") +
+            " solve_attempts = " + cyan(f"{state.get('solve_attempts')} ") +
+            " confidence = " + cyan(f"{state.get('confidence')}" + "\n" +
+                                    blue("  - last_ai = ") +
+                                    cyan(f"{repr(last_ai)}")
+                                    ))
 
 
 def run_scenario(node_fn: NodeFn, s: Scenario) -> Dict[str, Any]:
     state: Dict[str, Any] = {"messages": []}
     state.update((s.get("setup") or {}).get("initial_state") or {})
 
-    print(SET_GREEN + "\n" + "=" * 100 + RESET_COLOR)
-    print(SET_GREEN + f"{s.get('id')}: {s.get('title')}" + RESET_COLOR)
+    print(green("=" * 100))
+    print(green(f"{s.get('id')}: {s.get('title')}"))
     print()
     for k in sorted(state.keys()):
-        print(SET_BLUE + "  _initial_ " + RESET_COLOR
-              + f"state.{k}: "
-              + SET_CYAN + f"{state[k]}" + RESET_COLOR)
+        print(blue("  _initial_ ") + f"state.{k}: " + cyan(f"{state[k]}"))
 
     for i, turn in enumerate(s.get("turns") or [], start=1):
         user_msg_text = turn["user_msg"]
@@ -294,32 +293,28 @@ def run_scenario(node_fn: NodeFn, s: Scenario) -> Dict[str, Any]:
 
         # print("\n " + "." * 90)
         print()
-        print(SET_GREEN + f"  Turn {i} >" + "-" * 89 + RESET_COLOR)
-        print(SET_BLUE + "\n  _input_ " + RESET_COLOR + "User: " + SET_CYAN + f"{repr(user_msg_text)}" +
-              RESET_COLOR)
-        print(SET_GREEN + "  " + "." * 97 + RESET_COLOR)
+        print(green(f"  Turn {i} >" + "-" * 89))
+        print(blue("\n  _input_ ") + "User: " + cyan(f"{repr(user_msg_text)}"))
+        print(green("  " + "." * 97))
 
         locked_route = state.get("locked_route")
         if locked_route:
             print(
-                SET_BLUE + "  _output_ " + RESET_COLOR + "state.locked_route: " + SET_CYAN + f"{locked_route}" + RESET_COLOR)
+                blue("  _output_ ") + "state.locked_route: " + cyan(f"{locked_route}"))
         else:
             print(
-                SET_BLUE + "  _output_ " + RESET_COLOR + "state.estimated_route: " + SET_CYAN +
-                f"{state.get('estimated_route')}" + RESET_COLOR + "\t confidence: " +
-                SET_CYAN + f"{state.get('confidence')} " + RESET_COLOR
+                blue("  _output_ ") + "state.estimated_route: " + cyan(f"{state.get('estimated_route')}") + "\t confidence: " +
+                cyan(f"{state.get('confidence')} ")
             )
-        print(SET_BLUE + "  _output_ " + RESET_COLOR + "state.routing_attempts: " + SET_CYAN +
-              f"{state.get("routing_attempts")}" + RESET_COLOR)
-        print(SET_BLUE + "  _output_ " + RESET_COLOR + "state.solve_attempts: " + SET_CYAN +
-              f"{state.get("solve_attempts")}" + RESET_COLOR)
+        print(blue("  _output_ ") + "state.routing_attempts: " +
+              cyan(f"{state.get('routing_attempts')}"))
+        print(blue("  _output_ ") + "state.solve_attempts: " +
+              cyan(f"{state.get('solve_attempts')}"))
 
-        print(SET_BLUE + "  _output_ " + RESET_COLOR + "state.escalated_to_human: " + SET_CYAN +
-              f"{state.get("escalated_to_human")}" + RESET_COLOR)
+        print(blue("  _output_ ") + "state.escalated_to_human: " +
+              cyan(f"{state.get('escalated_to_human')}"))
         if last_ai:
-            print(SET_BLUE + "\n  _output_ " + RESET_COLOR +
-                  "Assistant: " + SET_CYAN, last_ai, RESET_COLOR)
-
+            print(blue("\n  _output_ ") + "Assistant: " + cyan(last_ai))
         print()  # blank space
 
         exp = turn.get("expect")
