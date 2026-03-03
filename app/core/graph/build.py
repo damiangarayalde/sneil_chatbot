@@ -1,7 +1,7 @@
 from langgraph.graph import StateGraph, START, END
 from app.core.graph.state import ChatState
 from app.core.graph.route_handler.factory_and_nodes import make_route_subgraph, route_node_name
-from app.core.graph.classifier.nodes import node__classify_user_intent
+from app.core.graph.route_classifier.nodes import node__classify_user_intent
 from app.core.graph.nodes import node__clarify, node__handoff, node__end_of_turn, end_turn_node_name
 from app.core.graph.flow_logging import wrap_node
 from app.core.utils import get_routes

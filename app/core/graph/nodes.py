@@ -14,7 +14,7 @@ from app.core.graph.state import (
     reset_solve_state,
 )
 from app.core.utils import is_valid_route
-from app.core.graph.classifier.models import ALLOWED_ROUTES
+from app.core.graph.route_classifier.models import ALLOWED_ROUTES
 
 
 def node__clarify(state: ChatState) -> ChatState:

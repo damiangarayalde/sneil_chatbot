@@ -17,7 +17,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.graph import END, START, StateGraph
 
 from app.core.graph.flow_logging import wrap_node
-from app.core.graph.nodes.route_subgraph import make_route_subgraph
+from app.core.graph.route_handler.factory_and_nodes import make_route_subgraph
 from app.core.graph.state import ChatState
 
 
@@ -126,9 +126,11 @@ def reset_thread_state(
 
     if hasattr(graph, "update_state"):
         try:
-            graph.update_state(config, clean_state)  # type: ignore[attr-defined]
+            # type: ignore[attr-defined]
+            graph.update_state(config, clean_state)
             return
         except TypeError:
             # Some langgraph versions require as_node=START
-            graph.update_state(config, clean_state, as_node=START)  # type: ignore[attr-defined]
+            # type: ignore[attr-defined]
+            graph.update_state(config, clean_state, as_node=START)
             return

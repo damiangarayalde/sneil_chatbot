@@ -1,5 +1,5 @@
 from __future__ import annotations
-from app.core.graph.classifier.chain import max_routing_attempts_before_handoff
+from app.core.graph.route_classifier.chain import max_routing_attempts_before_handoff
 from app.core.graph.state import ChatState, get_last_msg
 from app.core.graph.msg_heuristics_no_llm import asked_for_human, is_low_info
 from app.core.graph.route_handler.factory_and_nodes import route_node_name
