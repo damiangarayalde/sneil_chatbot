@@ -26,15 +26,11 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
     """Classifier node.
 
     Rules (in order):
-    1) If already locked -> pass-through
-    2) If cheap keyword routing works -> lock route (no LLM)
-    3) Else call LLM:
+    1) If cheap keyword routing works -> lock route (no LLM)
+    2) Else call LLM:
         - low confidence -> greet + clarifier question (routing_attempts += 1)
         - high confidence -> lock route
     """
-    locked = state.get("locked_route")
-    if is_valid_route(locked):
-        return {}
 
     prior_messages, last_message = get_history_and_last_msg(
         state.get("messages") or [])
