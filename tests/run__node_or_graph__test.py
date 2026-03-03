@@ -23,6 +23,9 @@ This lets you keep one bundle and vary per-scenario if desired.
 Run:
   python run_test.py path/to/bundle.json
   python run_test.py bundle1.json bundle2.json
+
+  python tests/run__node_or_graph__test.py tests/test__node_route_classifier.scenarios.json  
+   
 """
 
 from __future__ import annotations

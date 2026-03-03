@@ -1,0 +1,107 @@
+{
+    "node_ref": "app.core.graph.nodes:clarify_node",
+    "route_id": "AA",
+    "node_name": "clarify",
+    "scenarios": [
+        {
+            "id": "clarify_valid_route",
+            "title": "Clarify asks a route-specific disambiguation question and clears retrieved",
+            "tags": [
+                "route_subgraph",
+                "clarify",
+                "no_llm",
+                "deterministic"
+            ],
+            "setup": {
+                "route_id": "AA",
+                "initial_state": {
+                    "solve_attempts": 0,
+                    "locked_route": "AA",
+                    "retrieved": [
+                        {
+                            "page_content": "should be cleared by clarify"
+                        }
+                    ]
+                }
+            },
+            "turns": [
+                {
+                    "user_msg": "Tengo un problema",
+                    "expect": {
+                        "action": "ask_clarifier",
+                        "state": {
+                            "retrieved": null
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "id": "clarify_no_locked_route",
+            "title": "Clarify with no locked route – generic clarifier, clear retrieved",
+            "tags": [
+                "route_subgraph",
+                "clarify",
+                "generic",
+                "no_llm"
+            ],
+            "setup": {
+                "route_id": "AA",
+                "initial_state": {
+                    "solve_attempts": 0,
+                    "locked_route": null,
+                    "retrieved": [
+                        {
+                            "page_content": "something irrelevant"
+                        }
+                    ]
+                }
+            },
+            "turns": [
+                {
+                    "user_msg": "¿Qué pasa?",
+                    "expect": {
+                        "action": "ask_clarifier",
+                        "state": {
+                            "retrieved": null
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "id": "clarify_invalid_route",
+            "title": "Clarify with an invalid locked_route – treated as generic",
+            "tags": [
+                "route_subgraph",
+                "clarify",
+                "generic",
+                "no_llm",
+                "invalid_route"
+            ],
+            "setup": {
+                "route_id": "AA",
+                "initial_state": {
+                    "solve_attempts": 0,
+                    "locked_route": "UNKNOWN",
+                    "retrieved": [
+                        {
+                            "page_content": "clear me"
+                        }
+                    ]
+                }
+            },
+            "turns": [
+                {
+                    "user_msg": "¿Me ayudas?",
+                    "expect": {
+                        "action": "ask_clarifier",
+                        "state": {
+                            "retrieved": null
+                        }
+                    }
+                }
+            ]
+        }
+    ]
+}

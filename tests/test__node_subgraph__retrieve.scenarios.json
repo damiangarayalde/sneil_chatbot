@@ -1,5 +1,5 @@
 {
-    "node_ref": "app.core.graph.nodes.route_subgraph:make_route_subgraph",
+    "node_ref": "app.core.graph.route_handler.factory_and_nodes:make_route_subgraph",
     "route_id": "AA",
     "node_name": "retrieve",
     "scenarios": [
