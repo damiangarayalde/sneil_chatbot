@@ -3,6 +3,7 @@ from __future__ import annotations
 import time
 from functools import lru_cache
 from typing import Literal
+from urllib import response
 
 from langchain_core.messages import AIMessage
 from langgraph.graph import END, START, StateGraph
@@ -86,8 +87,11 @@ def make_route_subgraph(route_id: str):
         dt_ms = (time.perf_counter() - t0) * 1000
         print(f"[{route_id}] LLM elapsed: {dt_ms:.1f} ms")
 
-        # Count one "solving attempt" each time we send an LLM answer back.
-        solve_attempts_so_far = int(state.get("solve_attempts") or 0) + 1
+        # Increment solve_attempts only if LLM detects previous solution was ineffective
+        current_attempts = int(state.get("solve_attempts") or 0)
+        solve_attempts_so_far = current_attempts + \
+            1 if getattr(response, 'increment_solve_attempts',
+                         False) else current_attempts
 
         answer_text = (response.answer or "").strip()
         if not answer_text:

@@ -16,3 +16,6 @@ class HandlerOutput(BaseModel):
     answer: str = Field(
         description="The response to the user. Empty if is_topic_switch is True."
     )
+    increment_solve_attempts: bool = Field(
+        description="True if the user expressed the proposed solution was unsuccessful in solving his problem."
+    )
