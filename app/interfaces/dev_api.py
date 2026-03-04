@@ -6,12 +6,12 @@ import uvicorn
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse
 
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage, AIMessage
 
 from app.core.utils import get_routes
 from app.core.persistence import get_sqlite_checkpointer
+from app.core.graph.build import build_graph  # Changed to full graph like cli.py
 from app.interfaces.chatbot_ui_mockup_helpers import (
-    build_route_only_graph,
     extract_assistant_text,
     make_config,
     render_page,
@@ -21,30 +21,27 @@ from app.interfaces.chatbot_ui_mockup_helpers import (
 
 
 """
-Dev API for quickly testing a single route-subgraph with a WhatsApp-style UI.
+Dev API for quickly testing the full chatbot graph with a WhatsApp-style UI.
 
-This file mirrors the approach in api_test_route_subgraph.py, but uses an
-outsourced HTML file (chatbot_ui_mockup.html) that is loaded from disk at runtime.
+This mirrors cli.py's full chatbot behavior but with a web UI and reset functionality.
 """
 
 load_dotenv()
 
 TEST_KEY = os.getenv("TEST_KEY", "")
-TEST_ROUTE = os.getenv("TEST_ROUTE", "TPMS").strip() or "TPMS"
-
-ROUTES = set(get_routes())
-TEST_ROUTE = validate_route(TEST_ROUTE, ROUTES)
+# Removed TEST_ROUTE as full graph handles routing dynamically
 
 CHECKPOINTER = get_sqlite_checkpointer()
 
-graph = build_route_only_graph(TEST_ROUTE, checkpointer=CHECKPOINTER)
+graph = build_graph()  # Changed to full graph like cli.py
 
 app = FastAPI()
 
 
 @app.get("/", response_class=HTMLResponse)
 def home():
-    return HTMLResponse(render_page(__file__, TEST_ROUTE))
+    # Generalized for full graph; update HTML template if needed to remove route-specific elements
+    return HTMLResponse(render_page(__file__, "Full Chatbot"))
 
 
 @app.post("/chat")
@@ -63,15 +60,25 @@ async def chat(req: Request):
 
     config = make_config(thread_id)
 
-    # This dev UI is meant to test ONE route, so we keep locked_route fixed.
+    # Mimic cli.py: only send messages, no locked_route or attempts
     input_data = {
-        "locked_route": TEST_ROUTE,
-        "attempts": 1,
         "messages": [HumanMessage(content=text)],
     }
 
     output = graph.invoke(input_data, config=config)
-    answer = extract_assistant_text(output) or "(no assistant output)"
+
+    # Extract assistant text like cli.py: find AIMessages after the last HumanMessage
+    msgs = output.get("messages") or []
+    last_human_idx = next(
+        (i for i in range(len(msgs) - 1, -1, -1)
+         if isinstance(msgs[i], HumanMessage)),
+        None
+    )
+    start = (last_human_idx + 1) if last_human_idx is not None else 0
+    ai_after = [m for m in msgs[start:] if isinstance(m, AIMessage)]
+    answer = "\n".join(m.content.strip()
+                       for m in ai_after if m.content.strip()) or "(no assistant output)"
+
     return {"answer": answer}
 
 
@@ -83,7 +90,8 @@ async def reset(req: Request):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     thread_id = (payload.get("thread_id") or "").strip() or "dev-thread"
-    reset_thread_state(graph, thread_id, locked_route=TEST_ROUTE, attempts=0)
+    # Reset for full graph (assumes reset_thread_state works with full graph)
+    reset_thread_state(graph, thread_id)
     return {"ok": True}
 
 
