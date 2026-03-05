@@ -33,10 +33,11 @@ dependencies = [
 [project.scripts]
 chatbot = "app.interfaces.cli:run_chatbot"
 chatbot-api = "app.interfaces.dev_api:main"
-soporte-api = "app.interfaces.api_test_route_subgraph:main"
 
 [tool.setuptools.packages.find]
 include = ["app*"]
 exclude = ["data*", "knowledge*", "config*", "scripts*"]
 
+# to run the app run dev_api.py
+# then, to share the running app over web using ngrok  run in a terminal:
 # ngrok http 8000

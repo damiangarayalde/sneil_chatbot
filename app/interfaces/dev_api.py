@@ -15,7 +15,6 @@ from app.interfaces.chatbot_ui_mockup_helpers import (
     extract_assistant_text,
     make_config,
     render_page,
-    reset_thread_state,
     validate_route,
 )
 
@@ -90,8 +89,8 @@ async def reset(req: Request):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     thread_id = (payload.get("thread_id") or "").strip() or "dev-thread"
-    # Reset for full graph (assumes reset_thread_state works with full graph)
-    reset_thread_state(graph, thread_id)
+    # Reset for full graph: delete all checkpoints for this thread_id
+    CHECKPOINTER.delete(thread_id)
     return {"ok": True}
 
 
