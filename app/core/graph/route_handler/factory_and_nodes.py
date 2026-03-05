@@ -17,7 +17,7 @@ from app.core.graph.state import (
     get_last_msg,
 )
 from app.core.tools.rag import get_retriever
-# from app.tools.catalog_tool import catalog_lookup
+from app.core.tools.catalog_tool import catalog_lookup
 
 from .chain import get_route_chain
 
@@ -59,14 +59,16 @@ def make_route_subgraph(route_id: str):
         history, last_msg = get_history_and_last_msg(
             state.get("messages") or [])
 
-        # if any(x in user_text.lower() for x in ["precio", "vale", "cuesta", "link", "comprar", "sku"]):
-        #     tool_out = catalog_lookup(
-        #         user_text, product_family=route_id, k=3)
-        #     context += "\n\nCATALOG_LOOKUP:\n" + str(tool_out)
-
         # Prepare context string from retrieved docs
         docs = state.get("retrieved") or []
         context_text = "\n\n".join((d.get("page_content") or "") for d in docs)
+
+        # Check if user query involves catalog-related keywords
+        if any(x in last_msg.lower() for x in ["precio", "vale", "cuesta", "link", "comprar", "sku"]):
+            tool_out = catalog_lookup(
+                last_msg, product_family=route_id, k=3)
+            print(tool_out)
+            context_text += "\n\nCATALOG_LOOKUP:\n" + str(tool_out)
 
         response = chain.invoke(
             {

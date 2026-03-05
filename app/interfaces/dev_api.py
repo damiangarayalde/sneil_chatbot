@@ -90,7 +90,9 @@ async def reset(req: Request):
 
     thread_id = (payload.get("thread_id") or "").strip() or "dev-thread"
     # Reset for full graph: delete all checkpoints for this thread_id
-    CHECKPOINTER.delete(thread_id)
+    CHECKPOINTER.conn.execute(
+        "DELETE FROM checkpoints WHERE thread_id = ?", (thread_id,))
+    CHECKPOINTER.conn.commit()
     return {"ok": True}
 
 

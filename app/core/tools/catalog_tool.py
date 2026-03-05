@@ -45,12 +45,12 @@ def catalog_lookup(query: str, product_family: Optional[str] = None, k: int = 3)
     candidates = []  # List to hold matching products
     for p in data["items"]:
         # Skip products that do not match the specified product family
-        if product_family and p["product_family"] != product_family:
+        if product_family and p.get("family") != product_family:
             continue
         score = 0  # Initialize score for the current product
-        # Create a string containing model, SKU, and tags for matching
+        # Create a string containing model, SKU, and aliases for matching
         hay = " ".join([p.get("model", ""), p.get(
-            "sku", "")] + p.get("tags", []))
+            "sku", "")] + p.get("aliases", []))
         hay_n = _norm(hay)  # Normalize the product string
         if q in hay_n:
             score += 5  # Increase score for exact match
@@ -66,4 +66,4 @@ def catalog_lookup(query: str, product_family: Optional[str] = None, k: int = 3)
     top = [p for _, p in candidates[:k]]
 
     # Return the matches along with the count and currency
-    return {"matches": top, "count": len(top), "currency": data.get("currency", "ARS")}
+    return {"matches": top, "count": len(top), "currency": data.get("defaults", {}).get("currency", "ARS")}
