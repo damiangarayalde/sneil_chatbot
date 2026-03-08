@@ -1,5 +1,5 @@
 {
-  "node_ref": "app.core.graph.classifier.nodes:node__classify_user_intent",
+  "node_ref": "app.core.graph.route_classifier.nodes:node__classify_user_intent",
   "scenarios": [
     {
       "id": "Scenario_1",

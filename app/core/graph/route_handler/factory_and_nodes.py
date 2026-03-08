@@ -63,12 +63,12 @@ def make_route_subgraph(route_id: str):
         docs = state.get("retrieved") or []
         context_text = "\n\n".join((d.get("page_content") or "") for d in docs)
 
-        # Check if user query involves catalog-related keywords
-        if any(x in last_msg.lower() for x in ["precio", "vale", "cuesta", "link", "comprar", "sku"]):
-            tool_out = catalog_lookup(
-                last_msg, product_family=route_id, k=3)
-            print(tool_out)
-            context_text += "\n\nCATALOG_LOOKUP:\n" + str(tool_out)
+        # # Check if user query involves catalog-related keywords
+        # if any(x in last_msg.lower() for x in ["precio", "vale", "cuesta", "link", "comprar", "sku"]):
+        #     tool_out = catalog_lookup(
+        #         last_msg, product_family=route_id, k=3)
+        #     print(tool_out)
+        #     context_text += "\n\nCATALOG_LOOKUP:\n" + str(tool_out)
 
         response = chain.invoke(
             {
