@@ -53,6 +53,7 @@ def make_chat_prompt(route_id: str, route_prompt: str, max_chars: int, human_tem
     return ChatPromptTemplate.from_messages([
         ("system", system),
         # Internal metadata (kept as system, not human)
+        ("system", "Retrieved context (if any):\n{context}"),
         ("system", "META (uso interno, puede estar vacío):\n{meta}"),
         ("system", "Historial reciente (puede estar vacío):"),
         MessagesPlaceholder("history", optional=True),

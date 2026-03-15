@@ -63,12 +63,19 @@ def make_route_subgraph(route_id: str):
         docs = state.get("retrieved") or []
         context_text = "\n\n".join((d.get("page_content") or "") for d in docs)
 
-        # # Check if user query involves catalog-related keywords
-        # if any(x in last_msg.lower() for x in ["precio", "vale", "cuesta", "link", "comprar", "sku"]):
-        #     tool_out = catalog_lookup(
-        #         last_msg, product_family=route_id, k=3)
-        #     print(tool_out)
-        #     context_text += "\n\nCATALOG_LOOKUP:\n" + str(tool_out)
+        # Check if user query involves catalog-related keywords
+        # in the future, instead of providing a list of escape words like here a better approach would be to enable access to the catalog as a skill for the llm to decide wheter to query it based on the user msg.
+        if any(x in last_msg.lower() for x in ["precio", "valor", "sale", "vale", "cuesta", "link", "comprar", "sku"]):
+            tool_out = catalog_lookup(
+                last_msg, product_family=route_id, k=3)
+            print(f"Found {tool_out['count']} matches (showing top {3}):")
+            for i, match in enumerate(tool_out['matches'], 1):
+                price = match.get('price', 'N/A')
+                print(
+                    f"  {i}. [{match.get('id')}] {match.get('title')} - ${price} {tool_out['currency']}")
+            context_text += "\n\nCATALOG_LOOKUP:\n" + str(tool_out)
+
+        print(context_text)
 
         response = chain.invoke(
             {
