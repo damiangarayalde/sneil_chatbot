@@ -6,6 +6,7 @@ from app.core.graph.msg_heuristics_no_llm import (
     direct_route_from_keywords,
     route_disambiguation_question,
     wrap_with_greeting,
+    is_low_info,
 )
 from app.core.graph.state import (
     ChatState,
@@ -26,8 +27,9 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
     """Classifier node.
 
     Rules (in order):
-    1) If cheap keyword routing works -> lock route (no LLM)
-    2) Else call LLM:
+    1) If message is low-info (too short, generic greeting, exit phrase) -> end turn
+    2) If cheap keyword routing works -> lock route (no LLM)
+    3) Else call LLM:
         - low confidence -> greet + clarifier question (routing_attempts += 1)
         - high confidence -> lock route
     """
@@ -36,6 +38,11 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
         state.get("messages") or [])
     last_message = last_message or ""
     routing_attempts = int(state.get("routing_attempts") or 0)
+
+    # Check for low-info/exit phrases (prevents loops when user says "thanks", "bye", etc)
+    if is_low_info(last_message):
+        # Return empty state to skip to end_of_turn
+        return {}
 
     # cheap direct routing (keywords, route mentions, etc.)
     direct = direct_route_from_keywords(last_message, ALLOWED_ROUTES)

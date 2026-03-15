@@ -26,9 +26,13 @@ from app.core.utils import (
 # Low-info / small talk
 
 LOW_INFO_MSGS = {
-    "hola", "buenas", "buen día", "buen dia", "buenas tardes", "buenas noches"  # ,
-    # "ok", "oka", "dale", "listo", "joya", "perfecto", "bien",
-    #  "si", "sí", "no", "seguro", "claro", "gracias", "👍", "👌", "🙏"
+    # Greetings
+    "hola", "buenas", "buen día", "buen dia", "buenas tardes", "buenas noches",
+    # Exit/courtesy phrases (to prevent classifier from re-routing when user wants to end conversation)
+    "gracias", "gracias!", "gracias!!", "muchas gracias", "thank you", "thanks",
+    "ok", "oka", "dale", "listo", "joya", "perfecto", "bien",
+    "chau", "adiós", "adios", "hasta luego", "bye", "goodbye",
+    "nada más", "nada mas", "eso es todo", "es todo", "listo", "ya está", "ya esta",
 }
 
 

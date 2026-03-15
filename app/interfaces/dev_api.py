@@ -10,7 +10,7 @@ from langchain_core.messages import HumanMessage, AIMessage
 
 from app.core.utils import get_routes
 from app.core.persistence import get_sqlite_checkpointer
-from app.core.graph.build import build_graph  # Changed to full graph like cli.py
+from app.core.graph.build import build_graph
 from app.interfaces.chatbot_ui_mockup_helpers import (
     extract_assistant_text,
     make_config,
@@ -78,6 +78,19 @@ async def chat(req: Request):
     answer = "\n".join(m.content.strip()
                        for m in ai_after if m.content.strip()) or "(no assistant output)"
 
+    # Extract state info (excluding messages)
+    # state_info = {
+    #     "locked_route": output.get("locked_route"),
+    #     "estimated_route": output.get("estimated_route"),
+    #     "confidence": output.get("confidence"),
+    #     "routing_attempts": output.get("routing_attempts"),
+    #     "solve_attempts": output.get("solve_attempts"),
+    #     "max_solve_attempts": output.get("max_solve_attempts"),
+    #     "escalated_to_human": output.get("escalated_to_human"),
+    #     "retrieved_count": len(output.get("retrieved") or []),
+    # }
+
+    # return {"answer": answer, "state": state_info}
     return {"answer": answer}
 
 
