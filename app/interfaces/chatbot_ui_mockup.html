@@ -19,6 +19,7 @@
       --input:#e9edef;
 
       --accent:#00a884;
+      --stateBlue:#3b82f6;
       --danger:#5a2a2a;
       --dangerHover:#6a3333;
     }
@@ -36,13 +37,84 @@
       justify-content:center;
     }
 
-    /* Phone-ish frame (but still good on desktop) */
+    /* Phone-ish frame with sidebar (but still good on desktop) */
     .shell{
-      width: min(980px, 100%);
+      width: min(1400px, 100%);
       min-height: 100vh;
       display:flex;
       flex-direction:column;
       background: var(--panel);
+    }
+
+    .mainContent{
+      display: flex;
+      flex: 1 1 auto;
+      min-height: 0;
+      gap: 1px;
+      background: var(--border);
+    }
+
+    .chatSection{
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .sidebar{
+      width: 280px;
+      background: var(--panel);
+      border-left: 1px solid var(--border);
+      padding: 12px;
+      overflow-y: auto;
+      font-size: 12px;
+    }
+
+    .sidebarSection{
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebarSection:last-child{
+      border-bottom: none;
+    }
+
+    .sidebarLabel{
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+
+    .sidebarValue{
+      color: var(--stateBlue);
+      word-break: break-word;
+      line-height: 1.4;
+      font-weight: 500;
+    }
+
+    .sidebarValue.highlight{
+      color: var(--stateBlue);
+      font-weight: 600;
+    }
+
+    .sidebarValue.neutral{
+      color: rgba(59, 130, 246, 0.5);
+    }
+
+    @media (max-width: 1024px){
+      .mainContent{
+        flex-direction: column;
+      }
+      .sidebar{
+        width: 100%;
+        border-left: none;
+        border-top: 1px solid var(--border);
+        max-height: 180px;
+      }
     }
 
     .header{
@@ -261,6 +333,15 @@
 
     /* Mobile adjustments */
     @media (max-width: 560px){
+      .mainContent{
+        flex-direction: column;
+      }
+      .sidebar{
+        max-height: 150px;
+        width: 100%;
+        border-left: none;
+        border-top: 1px solid var(--border);
+      }
       .header{
         padding: 10px;
         gap: 10px;
@@ -314,12 +395,58 @@
       </div>
     </div>
 
-    <div id="chat" class="chatWrap"></div>
+    <div class="mainContent">
+      <div class="chatSection">
+        <div id="chat" class="chatWrap"></div>
 
-    <form id="form" class="composer">
-      <input id="msg" autocomplete="off" placeholder="Type a message..." />
-      <button class="sendBtn" type="submit">Send</button>
-    </form>
+        <form id="form" class="composer">
+          <input id="msg" autocomplete="off" placeholder="Type a message..." />
+          <button class="sendBtn" type="submit">Send</button>
+        </form>
+      </div>
+
+      <div class="sidebar">
+        <div class="sidebarSection">
+          <div class="sidebarLabel">Locked Route</div>
+          <div class="sidebarValue" id="lockedRoute">—</div>
+        </div>
+
+        <div class="sidebarSection">
+          <div class="sidebarLabel">Estimated Route</div>
+          <div class="sidebarValue" id="estimatedRoute">—</div>
+        </div>
+
+        <div class="sidebarSection">
+          <div class="sidebarLabel">Confidence</div>
+          <div class="sidebarValue" id="confidence">—</div>
+        </div>
+
+        <div class="sidebarSection">
+          <div class="sidebarLabel">Routing Attempts</div>
+          <div class="sidebarValue" id="routingAttempts">0</div>
+        </div>
+
+        <div class="sidebarSection">
+          <div class="sidebarLabel">Solve Attempts</div>
+          <div class="sidebarValue" id="solveAttempts">0</div>
+        </div>
+
+        <div class="sidebarSection">
+          <div class="sidebarLabel">Max Solve Attempts</div>
+          <div class="sidebarValue" id="maxSolveAttempts">—</div>
+        </div>
+
+        <div class="sidebarSection">
+          <div class="sidebarLabel">Escalated to Human</div>
+          <div class="sidebarValue" id="escalated">false</div>
+        </div>
+
+        <div class="sidebarSection">
+          <div class="sidebarLabel">Retrieved Documents</div>
+          <div class="sidebarValue highlight" id="retrievedCount">0</div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -329,9 +456,54 @@
     const thread = document.getElementById("thread");
     const resetBtn = document.getElementById("resetBtn");
 
+    // Sidebar elements
+    const lockedRoute = document.getElementById("lockedRoute");
+    const estimatedRoute = document.getElementById("estimatedRoute");
+    const confidence = document.getElementById("confidence");
+    const routingAttempts = document.getElementById("routingAttempts");
+    const solveAttempts = document.getElementById("solveAttempts");
+    const maxSolveAttempts = document.getElementById("maxSolveAttempts");
+    const escalated = document.getElementById("escalated");
+    const retrievedCount = document.getElementById("retrievedCount");
+
     function nowHHMM(){
       const d = new Date();
       return d.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+    }
+
+    function updateSidebar(state) {
+      // Locked Route
+      lockedRoute.textContent = state.locked_route || "—";
+      lockedRoute.className = state.locked_route ? "sidebarValue highlight" : "sidebarValue neutral";
+
+      // Estimated Route
+      estimatedRoute.textContent = state.estimated_route || "—";
+      estimatedRoute.className = state.estimated_route ? "sidebarValue highlight" : "sidebarValue neutral";
+
+      // Confidence (show as integer percentage, no decimals)
+      if (state.confidence != null && typeof state.confidence === 'number') {
+        confidence.textContent = Math.round(state.confidence * 100) + "%";
+        confidence.className = "sidebarValue highlight";
+      } else {
+        confidence.textContent = "—";
+        confidence.className = "sidebarValue neutral";
+      }
+
+      // Routing Attempts
+      routingAttempts.textContent = state.routing_attempts || 0;
+
+      // Solve Attempts
+      solveAttempts.textContent = state.solve_attempts || 0;
+
+      // Max Solve Attempts
+      maxSolveAttempts.textContent = state.max_solve_attempts != null ? state.max_solve_attempts : "—";
+
+      // Escalated to Human
+      escalated.textContent = state.escalated_to_human ? "true" : "false";
+      escalated.className = state.escalated_to_human ? "sidebarValue highlight" : "sidebarValue neutral";
+
+      // Retrieved Documents Count
+      retrievedCount.textContent = state.retrieved_count || 0;
     }
 
     function addBubble(side, text){
@@ -391,6 +563,11 @@
 
       const j = await r.json();
       addBubble("bot", j.answer || JSON.stringify(j));
+
+      // Update sidebar with state
+      if (j.state) {
+        updateSidebar(j.state);
+      }
     };
 
     resetBtn.onclick = async () => {
@@ -412,6 +589,19 @@
 
       chat.innerHTML = "";
       addBubble("bot", "Chat reset for this thread_id.");
+
+      // Reset sidebar
+      updateSidebar({
+        locked_route: null,
+        estimated_route: null,
+        confidence: null,
+        routing_attempts: 0,
+        solve_attempts: 0,
+        max_solve_attempts: null,
+        escalated_to_human: false,
+        retrieved_count: 0,
+      });
+
       msg.focus();
     };
   </script>

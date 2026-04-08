@@ -79,19 +79,18 @@ async def chat(req: Request):
                        for m in ai_after if m.content.strip()) or "(no assistant output)"
 
     # Extract state info (excluding messages)
-    # state_info = {
-    #     "locked_route": output.get("locked_route"),
-    #     "estimated_route": output.get("estimated_route"),
-    #     "confidence": output.get("confidence"),
-    #     "routing_attempts": output.get("routing_attempts"),
-    #     "solve_attempts": output.get("solve_attempts"),
-    #     "max_solve_attempts": output.get("max_solve_attempts"),
-    #     "escalated_to_human": output.get("escalated_to_human"),
-    #     "retrieved_count": len(output.get("retrieved") or []),
-    # }
+    state_info = {
+        "locked_route": output.get("locked_route"),
+        "estimated_route": output.get("estimated_route"),
+        "confidence": output.get("confidence"),
+        "routing_attempts": output.get("routing_attempts"),
+        "solve_attempts": output.get("solve_attempts"),
+        "max_solve_attempts": output.get("max_solve_attempts"),
+        "escalated_to_human": output.get("escalated_to_human"),
+        "retrieved_count": len(output.get("retrieved") or []),
+    }
 
-    # return {"answer": answer, "state": state_info}
-    return {"answer": answer}
+    return {"answer": answer, "state": state_info}
 
 
 @app.post("/reset")
