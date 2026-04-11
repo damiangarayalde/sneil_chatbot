@@ -1,0 +1,49 @@
+[
+  {
+    "match": "tpms",
+    "output": {
+      "estimated_route": "TPMS",
+      "confidence": 0.95,
+      "clarifying_question": null
+    }
+  },
+  {
+    "match": "sensor",
+    "output": {
+      "estimated_route": "TPMS",
+      "confidence": 0.9,
+      "clarifying_question": null
+    }
+  },
+  {
+    "match": "aire acondicionado",
+    "output": {
+      "estimated_route": "AA",
+      "confidence": 0.95,
+      "clarifying_question": null
+    }
+  },
+  {
+    "match": "no enfría",
+    "output": {
+      "estimated_route": "AA",
+      "confidence": 0.9,
+      "clarifying_question": null
+    }
+  },
+  {
+    "match": "climatizador",
+    "output": {
+      "estimated_route": "CLIMATIZADOR",
+      "confidence": 0.95,
+      "clarifying_question": null
+    }
+  },
+  {
+    "output": {
+      "estimated_route": "TPMS",
+      "confidence": 0.4,
+      "clarifying_question": "¿Podés contarme con qué producto necesitás ayuda?"
+    }
+  }
+]

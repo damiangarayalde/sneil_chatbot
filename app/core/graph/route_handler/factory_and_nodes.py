@@ -39,7 +39,6 @@ def make_route_subgraph(route_id: str):
     1) START chooses retrieve vs generate based on heuristics.
     2) retrieve (optional) -> generate -> END
     """
-    chain = get_route_chain(route_id)
 
     def route_from_start(state: ChatState) -> Literal["retrieve", "generate"]:
         last_msg = get_last_msg(state.get("messages") or [])
@@ -50,11 +49,12 @@ def make_route_subgraph(route_id: str):
         last_msg = get_last_msg(state.get("messages") or [])
         retriever = _get_route_retriever(route_id, k=3)
         retrieved_docs = retriever.invoke(last_msg)
-        return {"retrieved": [d.dict() for d in retrieved_docs]}
+        return {"retrieved": [{"page_content": d.page_content, "metadata": d.metadata} for d in retrieved_docs]}
 
     def generate(state: ChatState) -> ChatState:
         """Generate an answer using the LLM and retrieved context."""
         t0 = time.perf_counter()
+        chain = get_route_chain(route_id)
 
         history, last_msg = get_history_and_last_msg(
             state.get("messages") or [])

@@ -1,7 +1,5 @@
 {
-    "node_ref": "app.core.graph.route_handler.factory_and_nodes:make_route_subgraph",
-    "route_id": "AA",
-    "node_name": "handoff",
+    "node_ref": "app.core.graph.nodes:node__handoff",
     "scenarios": [
         {
             "id": "handoff_1",

@@ -33,7 +33,8 @@
                 "mocks": {
                     "llm_output": {
                         "is_topic_switch": true,
-                        "answer": ""
+                        "answer": "",
+                        "increment_solve_attempts": false
                     }
                 }
             },
@@ -81,7 +82,8 @@
                 "mocks": {
                     "llm_output": {
                         "is_topic_switch": false,
-                        "answer": "Probá limpiar el filtro y revisá el ventilador."
+                        "answer": "Para diagnosticar la falla, revisá el filtro de aire y el ventilador del condensador.",
+                        "increment_solve_attempts": true
                     }
                 }
             },
@@ -132,7 +134,8 @@
                 "mocks": {
                     "llm_output": {
                         "is_topic_switch": false,
-                        "answer": ""
+                        "answer": "",
+                        "increment_solve_attempts": true
                     }
                 }
             },

@@ -3,7 +3,7 @@ from __future__ import annotations
 from functools import lru_cache
 
 from app.core.prompts.builders import make_chat_prompt_for_route
-from app.core.utils import init_llm
+from app.core.llm_provider import is_mock_mode, get_llm, MockChain
 
 from .models import ClassifierOutput
 
@@ -13,11 +13,16 @@ def get_classifier_resources():
     """
     Build classifier chain lazily and cache it.
     Returns: (chain, classifier_cfg)
+
+    When LLM_MOCK=true the chain is a MockChain that reads from
+    tests/fixtures/mock_llm/ClassifierOutput.json — no API key required.
     """
-    llm = init_llm(model="gpt-4o-mini", temperature=0)
-    classifier_prompt, classifier_cfg = make_chat_prompt_for_route(
-        "CLASSIFIER")
-    chain = classifier_prompt | llm.with_structured_output(ClassifierOutput)
+    _classifier_prompt, classifier_cfg = make_chat_prompt_for_route("CLASSIFIER")
+    if is_mock_mode():
+        chain = MockChain(ClassifierOutput)
+    else:
+        llm = get_llm(model="gpt-4o-mini", temperature=0)
+        chain = _classifier_prompt | llm.with_structured_output(ClassifierOutput)
     return chain, classifier_cfg
 
 

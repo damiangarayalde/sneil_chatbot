@@ -1,7 +1,6 @@
 {
-    "node_ref": "app.core.graph.nodes:clarify_node",
+    "node_ref": "app.core.graph.nodes:node__clarify",
     "route_id": "AA",
-    "node_name": "clarify",
     "scenarios": [
         {
             "id": "clarify_valid_route",

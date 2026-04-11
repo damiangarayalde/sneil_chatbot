@@ -31,11 +31,13 @@ Run:
 from __future__ import annotations
 
 import argparse
+import contextlib
 import importlib
 import json
 import inspect
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
+from unittest.mock import patch as mock_patch, MagicMock
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from numpy import rint
@@ -274,7 +276,58 @@ def _assert_expect(state: Dict[str, Any], expect: Dict[str, Any]) -> None:
                                     ))
 
 
-def run_scenario(node_fn: NodeFn, s: Scenario) -> Dict[str, Any]:
+@contextlib.contextmanager
+def _apply_scenario_mocks(scenario: Scenario, bundle_meta: Dict[str, Any]):
+    """Patch LLM chain and/or retriever for the duration of one node call.
+
+    Reads ``scenario.setup.mocks``:
+    - ``llm_output``      → patches the route chain's ``.invoke()`` to return a
+                            HandlerOutput built from the given dict.
+    - ``retriever_docs``  → patches ``_get_route_retriever`` to return a mock
+                            retriever whose ``.invoke()`` yields the given docs.
+    """
+    setup = scenario.get("setup") or {}
+    mocks = setup.get("mocks") or {}
+    route_id = setup.get("route_id") or bundle_meta.get("route_id")
+
+    with contextlib.ExitStack() as stack:
+        llm_output = mocks.get("llm_output")
+        if llm_output and route_id:
+            from app.core.graph.route_handler.models import HandlerOutput
+            mock_response = HandlerOutput(**llm_output)
+            mock_chain = MagicMock()
+            mock_chain.invoke.return_value = mock_response
+            stack.enter_context(
+                mock_patch(
+                    "app.core.graph.route_handler.factory_and_nodes.get_route_chain",
+                    return_value=mock_chain,
+                )
+            )
+
+        retriever_docs = mocks.get("retriever_docs")
+        if retriever_docs:
+            from langchain_core.documents import Document
+            docs = [
+                Document(
+                    page_content=d["page_content"],
+                    metadata=d.get("metadata") or {},
+                )
+                for d in retriever_docs
+            ]
+            mock_retriever = MagicMock()
+            mock_retriever.invoke.return_value = docs
+            stack.enter_context(
+                mock_patch(
+                    "app.core.graph.route_handler.factory_and_nodes._get_route_retriever",
+                    return_value=mock_retriever,
+                )
+            )
+
+        yield
+
+
+def run_scenario(node_fn: NodeFn, s: Scenario, bundle_meta: Dict[str, Any] | None = None) -> Dict[str, Any]:
+    bundle_meta = bundle_meta or {}
     state: Dict[str, Any] = {"messages": []}
     state.update((s.get("setup") or {}).get("initial_state") or {})
 
@@ -289,8 +342,9 @@ def run_scenario(node_fn: NodeFn, s: Scenario) -> Dict[str, Any]:
         state.setdefault("messages", []).append(
             HumanMessage(content=user_msg_text))
 
-        patch = node_fn(state) or {}
-        state = _apply_patch(state, patch)
+        with _apply_scenario_mocks(s, bundle_meta):
+            state_update = node_fn(state) or {}
+        state = _apply_patch(state, state_update)
 
         last_ai = _last_ai_message(state.get("messages") or [])
 
@@ -348,7 +402,7 @@ def run_all(obj: Any, scenarios: List[Scenario], bundle_meta: Dict[str, Any]) ->
     for s in scenarios:
         try:
             node_fn = _resolve_node_fn(obj, bundle_meta, s)
-            run_scenario(node_fn, s)
+            run_scenario(node_fn, s, bundle_meta)
         except Exception as e:
             failures += 1
             print("\n  ❌ FAILED:", s.get("id"))

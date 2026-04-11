@@ -1,0 +1,33 @@
+[
+  {
+    "match": "aires acondicionados",
+    "output": {
+      "is_topic_switch": true,
+      "answer": "",
+      "increment_solve_attempts": false
+    }
+  },
+  {
+    "match": "cambiar de tema",
+    "output": {
+      "is_topic_switch": true,
+      "answer": "",
+      "increment_solve_attempts": false
+    }
+  },
+  {
+    "match": "sigue sin",
+    "output": {
+      "is_topic_switch": false,
+      "answer": "Entiendo que el problema persiste. Revisá que el módulo esté correctamente conectado y probá reiniciando el sistema.",
+      "increment_solve_attempts": true
+    }
+  },
+  {
+    "output": {
+      "is_topic_switch": false,
+      "answer": "Respuesta del mock LLM. Verificá la conexión del dispositivo y reiniciá si es necesario.",
+      "increment_solve_attempts": false
+    }
+  }
+]
