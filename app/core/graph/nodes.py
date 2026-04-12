@@ -1,5 +1,5 @@
 from __future__ import annotations
-from app.core.graph.state import ChatState
+from app.core.graph.state import ChatState, get_last_msg
 
 from langchain_core.messages import AIMessage
 from app.core.graph.msg_heuristics_no_llm import (
@@ -7,6 +7,7 @@ from app.core.graph.msg_heuristics_no_llm import (
     escalation_message,
     route_disambiguation_question,
     wrap_with_greeting,
+    asked_for_human,
 )
 from app.core.graph.state import (
     ChatState,
@@ -15,6 +16,9 @@ from app.core.graph.state import (
 )
 from app.core.utils import is_valid_route
 from app.core.graph.route_classifier.models import ALLOWED_ROUTES
+from app.core.logging_config import get_logger
+
+_logger = get_logger("sneil.handoff")
 
 
 def node__clarify(state: ChatState) -> ChatState:
@@ -40,10 +44,31 @@ def node__clarify(state: ChatState) -> ChatState:
 def node__handoff(state: ChatState) -> ChatState:
     """
     Handoff when:
-      - user asks for human
+      - user asks for human (explicit request)
       - routing attempts exceeded
       - solve attempts exceeded for locked route
     """
+    last_msg = get_last_msg(state.get("messages") or [])
+    reason = "unknown"
+
+    # Determine why we're handing off
+    if asked_for_human(last_msg):
+        reason = "user_requested_human"
+    elif state.get("solve_attempts"):
+        reason = "solve_attempts_exceeded"
+    elif state.get("routing_attempts"):
+        reason = "routing_attempts_exceeded"
+
+    _logger.info(
+        "handoff initiated",
+        extra={
+            "reason": reason,
+            "locked_route": state.get("locked_route"),
+            "routing_attempts": state.get("routing_attempts"),
+            "solve_attempts": state.get("solve_attempts"),
+        },
+    )
+
     msg = (
         "Disculpá — para no hacerte perder tiempo, mejor lo pasamos con una persona.\n\n"
         f"{escalation_message()}"

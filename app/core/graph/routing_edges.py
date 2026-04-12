@@ -7,6 +7,27 @@ from app.core.graph.nodes import end_turn_node_name
 
 from typing import Dict
 from app.core.utils import is_valid_route
+from langchain_core.messages import HumanMessage
+
+
+def is_locked(state: ChatState) -> bool:
+    """True when state has a valid locked_route."""
+    return is_valid_route(state.get("locked_route"))
+
+
+def _check_recent_messages_for_human_request(messages: list) -> bool:
+    """Check recent HumanMessages for human request.
+
+    Looks at the last 3 user messages to catch handoff requests even if
+    interspersed with assistant responses. This prevents getting stuck in
+    loops when a user asks for human while locked in a product handler.
+    """
+    human_messages = [m for m in messages if isinstance(m, HumanMessage)]
+    # Check last 3 human messages (most recent first)
+    for msg in reversed(human_messages[-3:]):
+        if asked_for_human(msg.content or ""):
+            return True
+    return False
 
 
 def is_locked(state: ChatState) -> bool:
@@ -49,12 +70,14 @@ def handler_edge_map(routes: list[str]) -> Dict[str, str]:
 def route_from_start_precheck(state: ChatState) -> str:
     """
     START router:
-      1) handoff (human request / attempts exceeded)
+      0) human request (priority!) - always escalate
+      1) handoff (routing attempts / solve attempts exceeded)
       2) clarify (low info)
       3) if locked => route handler
       4) else => classifier
     """
-    last_msg = get_last_msg(state.get("messages") or [])
+    messages = state.get("messages") or []
+    last_msg = get_last_msg(messages)
 
     routing_attempts = int(state.get("routing_attempts") or 0)
     solve_attempts = int(state.get("solve_attempts") or 0)
@@ -62,24 +85,25 @@ def route_from_start_precheck(state: ChatState) -> str:
 
     locked = state.get("locked_route")
 
-    # 1) explicit human request always wins
-    if asked_for_human(last_msg):
+    # 0) explicit human request ALWAYS takes priority (even if other checks would pass)
+    # Check both last message AND recent messages to avoid getting stuck in loops
+    if asked_for_human(last_msg) or _check_recent_messages_for_human_request(messages):
         return "handoff"
 
-    # 2) routing attempts cap
+    # 1) routing attempts cap
     max_routing = max_routing_attempts_before_handoff()
     if max_routing and routing_attempts >= max_routing:
         return "handoff"
 
-    # 3) solve attempts cap (only if locked)
+    # 2) solve attempts cap (only if locked)
     if is_valid_route(locked) and max_solve_attempts and solve_attempts >= max_solve_attempts:
         return "handoff"
 
-    # 4) low-info clarify (generic or route-specific)
+    # 3) low-info clarify (generic or route-specific)
     if is_low_info(last_msg):
         return "clarify"
 
-    # 5) locked => handler, else classifier
+    # 4) locked => handler, else classifier
     if is_valid_route(locked):
         return route_node_name(locked)
 

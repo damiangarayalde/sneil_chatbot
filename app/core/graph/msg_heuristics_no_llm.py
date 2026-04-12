@@ -78,6 +78,7 @@ def should_retrieve(user_text: str) -> bool:
 # Human handoff detection
 
 _HUMAN_REQUEST_PATTERNS = [
+    # Spanish
     r"hablar con (un|una) (humano|persona|asesor|agente|operador)",
     r"(asesor|agente|operador) (humano|real)",
     r"(quiero|necesito) (un|una) (humano|persona|asesor|agente|operador)",
@@ -87,12 +88,30 @@ _HUMAN_REQUEST_PATTERNS = [
     r"whats(app)?",
     r"wpp",
     r"wapp",
+    # English
+    r"talk to (a|an) (human|person|agent|operator|representative)",
+    r"speak to (a|an) (human|person|agent|operator|representative)",
+    r"(human|person|agent|operator|representative)\s+(support|help)",
+    r"(want|need|like|prefer|require) (to )?(speak|talk|chat) (with|to) (a|an)? ?(human|person|agent|operator|representative)",
+    r"agent",
+    r"operator",
+    r"human\s+agent",
+    r"customer\s+service",
+    r"live\s+agent",
+    r"live\s+chat",
+    r"escalat",  # escalate, escalation
+    r"supervisor",
 ]
 _HUMAN_REQUEST_RE = re.compile(
     "|".join(f"(?:{p})" for p in _HUMAN_REQUEST_PATTERNS), re.IGNORECASE)
 
 
 def asked_for_human(text: str) -> bool:
+    """Check if user is explicitly asking to talk to a human.
+
+    Covers both Spanish and English variations to prevent getting stuck
+    in product loops when user wants escalation.
+    """
     return bool(_HUMAN_REQUEST_RE.search(text or ""))
 
 
