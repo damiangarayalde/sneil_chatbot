@@ -1,22 +1,22 @@
 [
   {
     "id": "Scenario__1",
-    "title": "attempts >= max -> apology + recommend human + reset attempts",
+    "title": "attempts >= max -> apology + recommend human + reset attempts (NOTE: escalation handled by main graph, not subgraph)",
     "route_id": "TPMS",
     "setup": {
       "initial_state": {
-        "attempts": 5
+        "solve_attempts": 5,
+        "max_solve_attempts": 5,
+        "locked_route": "TPMS"
       }
     },
     "turns": [
       {
         "user_msg": "No me funciona y ya probé de todo.",
         "expect": {
-          "action": "escalate",
           "state": {
-            "locked_route": null,
-            "escalated_to_human": true,
-            "attempts": 0
+            "locked_route": "TPMS",
+            "solve_attempts": 5
           }
         }
       }
@@ -24,11 +24,12 @@
   },
   {
     "id": "Scenario__2A",
-    "title": "first attempt (0), vague -> clarifying question, no RAG, no increment",
+    "title": "first attempt (0), vague -> clarifying question, no increment",
     "route_id": "TPMS",
     "setup": {
       "initial_state": {
-        "attempts": 0
+        "solve_attempts": 0,
+        "locked_route": "TPMS"
       }
     },
     "turns": [
@@ -38,8 +39,7 @@
           "action": "ask_clarifier",
           "state": {
             "locked_route": "TPMS",
-            "attempts": 0,
-            "rag_ran": false
+            "solve_attempts": 0
           }
         }
       }
@@ -47,11 +47,12 @@
   },
   {
     "id": "Scenario__2B",
-    "title": "first attempt (0), problem -> answer + confirmation, attempts +1",
+    "title": "first attempt (0), problem -> answer returned, attempts unchanged (increment only on user feedback)",
     "route_id": "TPMS",
     "setup": {
       "initial_state": {
-        "attempts": 0
+        "solve_attempts": 0,
+        "locked_route": "TPMS"
       }
     },
     "turns": [
@@ -60,7 +61,7 @@
         "expect": {
           "state": {
             "locked_route": "TPMS",
-            "attempts": 1
+            "solve_attempts": 0
           }
         }
       }
@@ -68,20 +69,21 @@
   },
   {
     "id": "Scenario__3",
-    "title": "attempts=1 (<max) -> answer + confirmation, attempts becomes 2",
+    "title": "user says previous solution failed -> solve_attempts increments",
     "route_id": "TPMS",
     "setup": {
       "initial_state": {
-        "attempts": 1
+        "solve_attempts": 1,
+        "locked_route": "TPMS"
       }
     },
     "turns": [
       {
-        "user_msg": "Sigue sin conectar. Ya reinicié y cambié la pila del sensor.",
+        "user_msg": "Sigue sin conectar. Ya reinicié y cambié la pila del sensor. La solución que me diste no funcionó.",
         "expect": {
           "state": {
             "locked_route": "TPMS",
-            "attempts": 2
+            "solve_attempts": 2
           }
         }
       }
