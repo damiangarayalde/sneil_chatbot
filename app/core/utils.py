@@ -9,6 +9,8 @@ import yaml
 from dotenv import load_dotenv
 from langchain.chat_models import init_chat_model
 
+from app.core.config.schema import validate_cfg
+
 load_dotenv()
 
 # --------------------------------------------------------------------------------------
@@ -47,7 +49,9 @@ def _candidate_paths() -> List[Path]:
 def _load_cfg_cached() -> Dict[str, Any]:
     for p in _candidate_paths():
         if p.exists():
-            return yaml.safe_load(p.read_text(encoding="utf-8")) or {}
+            raw: Dict[str, Any] = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
+            validate_cfg(raw)  # Hard-fail at startup if config is invalid
+            return raw
     raise FileNotFoundError(
         "Could not find routing config. Tried: "
         + ", ".join(str(p) for p in _candidate_paths())
