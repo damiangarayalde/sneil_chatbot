@@ -4,7 +4,6 @@ from app.core.graph.state import ChatState, get_last_msg
 from langchain_core.messages import AIMessage
 from app.core.graph.msg_heuristics_no_llm import (
     default_clarifier,
-    escalation_message,
     route_disambiguation_question,
     wrap_with_greeting,
     asked_for_human,
@@ -69,10 +68,13 @@ def node__handoff(state: ChatState) -> ChatState:
         },
     )
 
-    msg = (
-        "Disculpá — para no hacerte perder tiempo, mejor lo pasamos con una persona.\n\n"
-        f"{escalation_message()}"
-    )
+    # Different messages based on handoff reason
+    if reason == "user_requested_human":
+        msg = "De acuerdo, para hablar con uno de nuestros asesores escribinos por WhatsApp a nuestro número de soporte (humano)."
+    else:
+        # For solve_attempts_exceeded or routing_attempts_exceeded
+        msg = "Disculpa, en este caso mejor te derivo con un asesor tecnico, por favor escribinos por WhatsApp a nuestro número de soporte (humano)."
+
     return {
         "messages": [AIMessage(content=msg)],
         "escalated_to_human": True,
