@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 
 from tests.integration.conftest import bundle_params
-from tests.run__node_or_graph__test import (
+from tests.scenario_helpers import (
     load_scenarios_json,
     _resolve_node_fn,
     run_scenario,

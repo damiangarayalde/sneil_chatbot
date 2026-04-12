@@ -25,7 +25,7 @@ import pytest
 from langchain_core.messages import HumanMessage
 
 from tests.integration.conftest import bundle_params
-from tests.run__node_or_graph__test import (
+from tests.scenario_helpers import (
     _apply_patch,
     _assert_expect,
     _last_ai_message,
