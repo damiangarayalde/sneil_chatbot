@@ -19,7 +19,7 @@ from app.core.graph.state import (
 from app.core.tools.rag import get_retriever
 from app.core.tools.catalog_tool import catalog_lookup
 
-from .chain import get_route_chain
+from .chain import get_route_chain_safe_invoke
 from app.core.logging_config import get_logger
 
 _logger = get_logger("sneil.handler")
@@ -57,7 +57,6 @@ def make_route_subgraph(route_id: str):
     def generate(state: ChatState) -> ChatState:
         """Generate an answer using the LLM and retrieved context."""
         t0 = time.perf_counter()
-        chain = get_route_chain(route_id)
 
         history, last_msg = get_history_and_last_msg(
             state.get("messages") or [])
@@ -73,7 +72,8 @@ def make_route_subgraph(route_id: str):
                 last_msg, product_family=route_id, k=3)
             _logger.info(
                 "catalog lookup complete",
-                extra={"node": f"generate__{route_id}", "route": route_id, "catalog_matches": tool_out["count"]},
+                extra={"node": f"generate__{route_id}", "route": route_id,
+                       "catalog_matches": tool_out["count"]},
             )
             context_text += "\n\nCATALOG_LOOKUP:\n" + str(tool_out)
 
@@ -82,7 +82,9 @@ def make_route_subgraph(route_id: str):
             extra={"node": f"generate__{route_id}", "route": route_id},
         )
 
-        response = chain.invoke(
+        # Invoke handler chain with retry, timeout, and fallback
+        response = get_route_chain_safe_invoke(
+            route_id,
             {
                 "history": history,
                 "user_text": last_msg,
@@ -101,7 +103,8 @@ def make_route_subgraph(route_id: str):
         dt_ms = round((time.perf_counter() - t0) * 1000, 1)
         _logger.info(
             "LLM generate complete",
-            extra={"node": f"generate__{route_id}", "route": route_id, "duration_ms": dt_ms},
+            extra={"node": f"generate__{route_id}",
+                   "route": route_id, "duration_ms": dt_ms},
         )
 
         # Increment solve_attempts only if LLM detects previous solution was ineffective

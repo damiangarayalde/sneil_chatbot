@@ -9,9 +9,9 @@ ALLOWED_ROUTES = set(get_routes())
 class ClassifierOutput(BaseModel):
     """Structured output model used to enforce the classifier's response shape."""
 
-    estimated_route: Literal["TPMS", "AA", "CLIMATIZADOR"] = Field(
+    estimated_route: Literal["TPMS", "AA", "CLIMATIZADOR", "UNKNOWN"] = Field(
         ...,
-        description="Clasifica el tipo de mensaje como un route_id válido (ej: TPMS, AA, CLIMATIZADOR).",
+        description="Clasifica el tipo de mensaje como un route_id válido (ej: TPMS, AA, CLIMATIZADOR). Use UNKNOWN as fallback when LLM fails.",
     )
     confidence: float = Field(..., ge=0, le=1)
     clarifying_question: Optional[str] = Field(
@@ -23,6 +23,9 @@ class ClassifierOutput(BaseModel):
     @classmethod
     def validate_route(cls, v: str) -> str:
         v = (v or "").strip()
+        # Allow UNKNOWN as a special value for fallback cases
+        if v == "UNKNOWN":
+            return v
         if v not in ALLOWED_ROUTES:
             raise ValueError(f"Invalid estimated_route: {v}")
         return v

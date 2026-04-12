@@ -16,7 +16,7 @@ from app.core.graph.state import (
 from app.core.utils import is_valid_route
 
 from .chain import (
-    classifier_chain,
+    classifier_chain_safe_invoke,
     max_solve_attempts_for_route,
     route_lock_threshold,
 )
@@ -53,9 +53,9 @@ def node__classify_user_intent(state: ChatState) -> ChatState:
             max_solve_attempts=max_solve_attempts_for_route(direct),
         )
 
-    # LLM classifier
+    # LLM classifier (with retry, timeout, and fallback)
     meta_text = f"routing_attempts={routing_attempts}\n"
-    result = classifier_chain().invoke(
+    result = classifier_chain_safe_invoke(
         {
             "user_text": last_message,
             "history": prior_messages,
