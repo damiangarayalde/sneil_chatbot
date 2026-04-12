@@ -1,8 +1,10 @@
 from dotenv import load_dotenv
 from app.core.graph.build import build_graph
+from app.core.logging_config import configure_logging
 from langchain_core.messages import HumanMessage, AIMessage
 
 load_dotenv()
+configure_logging()
 graph = build_graph()
 
 

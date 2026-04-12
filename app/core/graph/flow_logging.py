@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 from typing import Any, Callable, Dict, List, Optional
 from langchain_core.messages import BaseMessage
 from app.core.graph.state import ChatState
@@ -9,10 +10,9 @@ from app.core.graph.state import ChatState
 # Routing helpers (to predict the "next" node for clearer logs).
 # NOTE: These are pure functions and safe to call here.
 from app.core.graph.nodes import end_turn_node_name
+from app.core.logging_config import get_logger
 
-# ---- Logging config ----
-_MAX_STR = 110   # max chars shown for any string-ish value
-_MAX_KVS = 7     # max extra key/values shown per line
+_logger = get_logger("sneil.flow")
 
 
 def _ansi_enabled() -> bool:
@@ -133,11 +133,10 @@ def _delta_normalize_messages(input_state: ChatState, result: Dict[str, Any]) ->
 
 
 def wrap_node(name: str, fn: Callable[[ChatState], ChatState]) -> Callable[[ChatState], ChatState]:
-    """Wrap a node (or compiled subgraph) and print a one-line flow log per execution."""
+    """Wrap a node (or compiled subgraph): emit one structured log line per execution."""
 
     def wrapper(state: ChatState) -> ChatState:
-        # Snapshot "before"
-        in_locked = state.get("locked_route")
+        t0 = time.perf_counter()
 
         # Execute
         if hasattr(fn, "invoke"):
@@ -145,35 +144,33 @@ def wrap_node(name: str, fn: Callable[[ChatState], ChatState]) -> Callable[[Chat
         else:
             result = fn(state)
 
+        dt_ms = round((time.perf_counter() - t0) * 1000, 1)
+
         # If this runnable/subgraph returned full state, keep only delta messages
         if isinstance(result, dict):
             result = _delta_normalize_messages(state, result)
 
-        # Merge state+result for display and prediction
+        # Merge state+result to read post-execution signals
         merged: Dict[str, Any] = dict(state)
         if isinstance(result, dict):
             merged.update(result)
 
+        conf = merged.get("confidence")
+        conf_val = round(float(conf), 3) if isinstance(conf, (float, int)) else None
+
+        # Keep the ANSI flow bar in the message text (readable in pretty mode;
+        # ignored in JSON mode where structured fields are used instead).
         flow_bar = _render_flow_bar(name, merged)
 
-        # Tail: signal-heavy routing
-        tail_parts: List[str] = []
-
-        out_locked = merged.get("locked_route")
-
-        if _non_empty(out_locked):
-            tail_parts.append(f"Locked_route={out_locked}")
-
-        conf = merged.get("confidence")
-        if isinstance(conf, (float, int)):
-            tail_parts.append(f"confidence={float(conf):.3f}")
-
-        ra = merged.get("attempts")
-        if isinstance(ra, int) and ra != 0:
-            tail_parts.append(f"attempts={ra}")
-
-        tail = ("  " + " ".join(tail_parts[:_MAX_KVS])) if tail_parts else ""
-        print(f"[ {flow_bar} ] {tail}")
+        _logger.info(
+            flow_bar,
+            extra={
+                "node": name,
+                "duration_ms": dt_ms,
+                "route": merged.get("locked_route") or None,
+                "confidence": conf_val,
+            },
+        )
 
         return result
 

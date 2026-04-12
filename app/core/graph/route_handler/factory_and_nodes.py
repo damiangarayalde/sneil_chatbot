@@ -20,6 +20,9 @@ from app.core.tools.rag import get_retriever
 from app.core.tools.catalog_tool import catalog_lookup
 
 from .chain import get_route_chain
+from app.core.logging_config import get_logger
+
+_logger = get_logger("sneil.handler")
 
 
 @lru_cache(maxsize=64)
@@ -68,14 +71,16 @@ def make_route_subgraph(route_id: str):
         if any(x in last_msg.lower() for x in ["precio", "valor", "sale", "vale", "cuesta", "link", "comprar", "sku"]):
             tool_out = catalog_lookup(
                 last_msg, product_family=route_id, k=3)
-            print(f"Found {tool_out['count']} matches (showing top {3}):")
-            for i, match in enumerate(tool_out['matches'], 1):
-                price = match.get('price', 'N/A')
-                print(
-                    f"  {i}. [{match.get('id')}] {match.get('title')} - ${price} {tool_out['currency']}")
+            _logger.info(
+                "catalog lookup complete",
+                extra={"node": f"generate__{route_id}", "route": route_id, "catalog_matches": tool_out["count"]},
+            )
             context_text += "\n\nCATALOG_LOOKUP:\n" + str(tool_out)
 
-        print(context_text)
+        _logger.debug(
+            "context assembled",
+            extra={"node": f"generate__{route_id}", "route": route_id},
+        )
 
         response = chain.invoke(
             {
@@ -93,8 +98,11 @@ def make_route_subgraph(route_id: str):
                 **reset_solve_state(),
             }
 
-        dt_ms = (time.perf_counter() - t0) * 1000
-        print(f"[{route_id}] LLM elapsed: {dt_ms:.1f} ms")
+        dt_ms = round((time.perf_counter() - t0) * 1000, 1)
+        _logger.info(
+            "LLM generate complete",
+            extra={"node": f"generate__{route_id}", "route": route_id, "duration_ms": dt_ms},
+        )
 
         # Increment solve_attempts only if LLM detects previous solution was ineffective
         current_attempts = int(state.get("solve_attempts") or 0)

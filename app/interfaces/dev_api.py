@@ -1,4 +1,6 @@
 import os
+import time
+import uuid
 
 from dotenv import load_dotenv
 
@@ -8,6 +10,7 @@ from fastapi.responses import HTMLResponse
 
 from langchain_core.messages import HumanMessage, AIMessage
 
+from app.core.logging_config import configure_logging, get_logger, set_request_id
 from app.core.utils import get_routes
 from app.core.persistence import get_sqlite_checkpointer
 from app.core.graph.build import build_graph
@@ -17,6 +20,9 @@ from app.interfaces.chatbot_ui_mockup_helpers import (
     render_page,
     validate_route,
 )
+
+configure_logging()
+_logger = get_logger("sneil.api")
 
 
 """
@@ -57,6 +63,11 @@ async def chat(req: Request):
     if not text:
         raise HTTPException(status_code=400, detail="Missing 'text'")
 
+    request_id = uuid.uuid4().hex[:8]
+    set_request_id(request_id)
+    t0 = time.perf_counter()
+    _logger.info("request start", extra={"thread_id": thread_id})
+
     config = make_config(thread_id)
 
     # Mimic cli.py: only send messages, no locked_route or attempts
@@ -89,6 +100,17 @@ async def chat(req: Request):
         "escalated_to_human": output.get("escalated_to_human"),
         "retrieved_count": len(output.get("retrieved") or []),
     }
+
+    dt_ms = round((time.perf_counter() - t0) * 1000, 1)
+    _logger.info(
+        "request complete",
+        extra={
+            "thread_id": thread_id,
+            "duration_ms": dt_ms,
+            "route": state_info.get("locked_route"),
+            "confidence": state_info.get("confidence"),
+        },
+    )
 
     return {"answer": answer, "state": state_info}
 
