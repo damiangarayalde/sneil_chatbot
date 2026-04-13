@@ -38,7 +38,7 @@ def test_classifier_section_present() -> None:
 def test_all_routes_have_prompt_file() -> None:
     raw = load_cfg()
     for key, value in raw.items():
-        if key == "CLASSIFIER":
+        if key == "CLASSIFIER" or not isinstance(value, dict):
             continue
         assert "prompt_file" in value, f"Route '{key}' is missing required key 'prompt_file'"
 
@@ -56,7 +56,7 @@ def test_classifier_fields_are_within_bounds() -> None:
 def test_all_route_max_attempts_at_least_one() -> None:
     raw = load_cfg()
     for key, value in raw.items():
-        if key == "CLASSIFIER":
+        if key == "CLASSIFIER" or not isinstance(value, dict):
             continue
         cfg = RouteConfig(**value)
         assert cfg.max_attempts_before_handoff >= 1, (
@@ -102,7 +102,7 @@ def test_route_rejects_invalid_values(
     field: str, bad_value: object, error_fragment: str
 ) -> None:
     raw = load_cfg()
-    route_key = next(k for k in raw if k != "CLASSIFIER")
+    route_key = next(k for k in raw if k != "CLASSIFIER" and isinstance(raw[k], dict))
     data = dict(raw[route_key])
     data[field] = bad_value
     with pytest.raises(Exception, match=error_fragment):
@@ -152,7 +152,7 @@ def test_validate_cfg_raises_on_bad_route() -> None:
 def test_extra_route_keys_are_tolerated() -> None:
     """RouteConfig must not reject unknown keys — forward compatibility."""
     raw = load_cfg()
-    route_key = next(k for k in raw if k != "CLASSIFIER")
+    route_key = next(k for k in raw if k != "CLASSIFIER" and isinstance(raw[k], dict))
     data = dict(raw[route_key])
     data["some_future_key"] = "value"
     RouteConfig(**data)  # Must not raise

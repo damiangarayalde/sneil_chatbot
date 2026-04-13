@@ -3273,6 +3273,7 @@ dependencies = [
     { name = "langchain-text-splitters" },
     { name = "langgraph" },
     { name = "langgraph-checkpoint-sqlite" },
+    { name = "openai" },
     { name = "openpyxl" },
     { name = "pandas" },
     { name = "pydantic" },
@@ -3280,6 +3281,7 @@ dependencies = [
     { name = "python-docx" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
+    { name = "tenacity" },
     { name = "uvicorn" },
 ]
 
@@ -3304,6 +3306,7 @@ requires-dist = [
     { name = "langchain-text-splitters", specifier = ">=1.1.0" },
     { name = "langgraph", specifier = ">=1.0.7" },
     { name = "langgraph-checkpoint-sqlite", specifier = ">=3.0.3" },
+    { name = "openai", specifier = ">=1.3.0" },
     { name = "openpyxl", specifier = ">=3.1.5" },
     { name = "pandas", specifier = ">=3.0.0" },
     { name = "pydantic", specifier = ">=2.12.5" },
@@ -3315,6 +3318,7 @@ requires-dist = [
     { name = "python-docx", specifier = ">=1.2.0" },
     { name = "python-dotenv", specifier = ">=1.2.1" },
     { name = "pyyaml", specifier = ">=6.0.3" },
+    { name = "tenacity", specifier = ">=8.2.3" },
     { name = "uvicorn", specifier = ">=0.40.0" },
 ]
 provides-extras = ["test"]

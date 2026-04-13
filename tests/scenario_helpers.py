@@ -230,7 +230,7 @@ def _apply_scenario_mocks(scenario: Scenario, bundle_meta: Dict[str, Any]):
             mock_chain.invoke.return_value = mock_response
             stack.enter_context(
                 mock_patch(
-                    "app.core.graph.route_handler.factory_and_nodes.get_route_chain",
+                    "app.core.graph.route_handler.chain.get_route_chain",
                     return_value=mock_chain,
                 )
             )
