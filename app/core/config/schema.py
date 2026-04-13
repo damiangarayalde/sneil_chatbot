@@ -62,6 +62,8 @@ class AppConfig(BaseModel):
     """
 
     CLASSIFIER: ClassifierConfig
+    MAX_HISTORY_MESSAGES: int = Field(default=20, ge=1)
+    THREAD_TTL_HOURS: int = Field(default=24, ge=1)
 
     model_config = {"extra": "allow"}
 
@@ -70,7 +72,7 @@ class AppConfig(BaseModel):
     def _validate_routes(cls, data: dict[str, Any]) -> dict[str, Any]:
         errors: list[str] = []
         for key, value in data.items():
-            if key == "CLASSIFIER":
+            if key in ("CLASSIFIER", "MAX_HISTORY_MESSAGES", "THREAD_TTL_HOURS"):
                 continue
             if not isinstance(value, dict):
                 errors.append(

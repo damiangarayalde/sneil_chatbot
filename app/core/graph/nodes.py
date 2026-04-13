@@ -1,7 +1,7 @@
 from __future__ import annotations
 from app.core.graph.state import ChatState, get_last_msg
 
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, BaseMessage
 from app.core.graph.msg_heuristics_no_llm import (
     default_clarifier,
     route_disambiguation_question,
@@ -13,7 +13,7 @@ from app.core.graph.state import (
     reset_routing_state,
     reset_solve_state,
 )
-from app.core.utils import is_valid_route
+from app.core.utils import is_valid_route, load_cfg
 from app.core.graph.route_classifier.models import ALLOWED_ROUTES
 from app.core.logging_config import get_logger
 
@@ -90,10 +90,28 @@ def end_turn_node_name() -> str:
 
 def node__end_of_turn(state: ChatState) -> ChatState:
     """Finalize a single graph invocation ("turn").
-
-    Keeping for future use and flexibility
+    - Truncate message history to MAX_HISTORY_MESSAGES to prevent context explosion.
+    - Keep the last N messages; if fewer than N exist, keep all.
     """
-
     updates: dict = {}
+
+    # Load config and get max_history_messages
+    cfg = load_cfg()
+    max_history = cfg.get("MAX_HISTORY_MESSAGES", 20)
+
+    # Truncate messages if needed
+    messages: list[BaseMessage] = state.get("messages") or []
+    if len(messages) > max_history:
+        # Keep only the last N messages
+        truncated_messages = messages[-max_history:]
+        updates["messages"] = truncated_messages
+        _logger.info(
+            "message history truncated",
+            extra={
+                "total_messages": len(messages),
+                "kept_messages": len(truncated_messages),
+                "max_history": max_history,
+            },
+        )
 
     return updates

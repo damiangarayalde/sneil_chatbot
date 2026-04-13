@@ -11,8 +11,12 @@ from fastapi.responses import HTMLResponse
 from langchain_core.messages import HumanMessage, AIMessage
 
 from app.core.logging_config import configure_logging, get_logger, set_request_id
-from app.core.utils import get_routes
-from app.core.persistence import get_sqlite_checkpointer
+from app.core.utils import get_routes, load_cfg
+from app.core.persistence import (
+    get_sqlite_checkpointer,
+    delete_old_threads,
+    get_db_stats,
+)
 from app.core.graph.build import build_graph
 from app.interfaces.chatbot_ui_mockup_helpers import (
     extract_assistant_text,
@@ -41,6 +45,22 @@ CHECKPOINTER = get_sqlite_checkpointer()
 graph = build_graph()  # Changed to full graph like cli.py
 
 app = FastAPI()
+
+
+@app.on_event("startup")
+async def startup_cleanup():
+    """Clean up old threads on startup (Gap 4 — Thread TTL)."""
+    cfg = load_cfg()
+    ttl_hours = cfg.get("THREAD_TTL_HOURS", 24)
+    try:
+        deleted = delete_old_threads(CHECKPOINTER, ttl_hours)
+        if deleted > 0:
+            _logger.info(
+                "startup cleanup completed",
+                extra={"deleted_threads": deleted, "ttl_hours": ttl_hours},
+            )
+    except Exception as e:
+        _logger.error("startup cleanup failed", extra={"error": str(e)})
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -128,6 +148,32 @@ async def reset(req: Request):
         "DELETE FROM checkpoints WHERE thread_id = ?", (thread_id,))
     CHECKPOINTER.conn.commit()
     return {"ok": True}
+
+
+@app.get("/health")
+async def health():
+    """Health check endpoint with database statistics (Gap 4).
+
+    Returns:
+        - status: "ok" if healthy
+        - db: Database statistics (size_bytes, active_thread_count, total_checkpoints)
+        - max_history_messages: Configured message history limit
+        - thread_ttl_hours: Configured thread TTL
+    """
+    try:
+        stats = get_db_stats(CHECKPOINTER)
+        cfg = load_cfg()
+
+        return {
+            "status": "ok",
+            "db": stats,
+            "max_history_messages": cfg.get("MAX_HISTORY_MESSAGES", 20),
+            "thread_ttl_hours": cfg.get("THREAD_TTL_HOURS", 24),
+        }
+    except Exception as e:
+        _logger.error("health check failed", extra={"error": str(e)})
+        raise HTTPException(
+            status_code=500, detail=f"Health check failed: {str(e)}")
 
 
 def main():

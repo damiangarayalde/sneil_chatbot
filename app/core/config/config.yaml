@@ -9,6 +9,10 @@ CLASSIFIER:
   prompt_file: app/core/prompts/classifier.md
   max_attempts_before_handoff: 3
   route_lock_threshold: 0.75
+
+MAX_HISTORY_MESSAGES: 20
+THREAD_TTL_HOURS: 24
+
 TPMS:
   max_chars: 500
   preferred_chars:
