@@ -6,21 +6,24 @@ from typing import Tuple
 
 from langgraph.checkpoint.sqlite import SqliteSaver
 
+_DEFAULT_DIR = "data/checkpoints"
+_DEFAULT_DB = "threads.db"
 
-def get_sqlite_checkpointer(checkpoint_dir: str = "data/checkpoints", db_name: str = "threads.db") -> SqliteSaver:
-    """
-    Initializes the database directory and returns a persistent SqliteSaver.
-    """
-    # Ensure the directory exists
+
+def get_db_path(checkpoint_dir: str = _DEFAULT_DIR, db_name: str = _DEFAULT_DB) -> str:
+    """Return the SQLite DB path, creating the directory if needed."""
     os.makedirs(checkpoint_dir, exist_ok=True)
+    return os.path.join(checkpoint_dir, db_name)
 
-    # Define the full path to the database file
-    db_path = os.path.join(checkpoint_dir, db_name)
 
-    # Create the persistent connection
-    # check_same_thread=False is essential for async/web-based chatbot environments
+def get_sqlite_checkpointer(checkpoint_dir: str = _DEFAULT_DIR, db_name: str = _DEFAULT_DB) -> SqliteSaver:
+    """
+    Returns a synchronous SqliteSaver.
+    Use this for CLI, direct SQL ops (reset, health), and TTL cleanup.
+    Use AsyncSqliteSaver (via get_db_path) for async graph invocations.
+    """
+    db_path = get_db_path(checkpoint_dir, db_name)
     conn = sqlite3.connect(db_path, check_same_thread=False)
-
     return SqliteSaver(conn)
 
 

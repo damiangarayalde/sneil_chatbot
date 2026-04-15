@@ -14,17 +14,24 @@ from app.core.graph.routing_edges import (
     route_from_start_precheck,
 )
 
-# Routes are config-drivens (config/routes.(yaml|yml))
+# Routes are config-driven (config/routes.(yaml|yml))
 ROUTES = get_routes()
 
 # Pre-build route subgraphs
 subgraphs = {route: make_route_subgraph(route) for route in ROUTES}
 
-# Initialize checkpointer via the new utility
-memory = get_sqlite_checkpointer()
 
+def build_graph(checkpointer=None) -> StateGraph:
+    """
+    Compile the full chatbot graph.
 
-def build_graph() -> StateGraph:
+    Args:
+        checkpointer: LangGraph checkpointer to use. Defaults to a synchronous
+            SqliteSaver (suitable for CLI). Pass an AsyncSqliteSaver when
+            calling from an async context (e.g. the dev API).
+    """
+    if checkpointer is None:
+        checkpointer = get_sqlite_checkpointer()
     g = StateGraph(ChatState)
 
     # --------------------------------------------------------------------------------------------
@@ -70,7 +77,7 @@ def build_graph() -> StateGraph:
 
     g.add_edge(end_turn_node_name(), END)
 
-    return g.compile(checkpointer=memory)
+    return g.compile(checkpointer=checkpointer)
 
     # ADD SESSION TIMEOUTs
     # when changing topic  the assistant dont ask anything

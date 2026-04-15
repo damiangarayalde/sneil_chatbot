@@ -187,7 +187,8 @@
       white-space: nowrap;
     }
 
-    input[type="text"]{
+    input[type="text"],
+    input[type="password"]{
       width: min(360px, 100%);
       background: rgba(0,0,0,0.18);
       border: 1px solid var(--border);
@@ -388,6 +389,10 @@
 
       <div class="controls">
         <div class="field">
+          <label for="apiKey">test key</label>
+          <input id="apiKey" type="password" autocomplete="off" placeholder="TEST_KEY (if set)" style="width:min(180px,100%)" />
+        </div>
+        <div class="field">
           <label for="thread">thread_id</label>
           <input id="thread" type="text" autocomplete="off" placeholder="+54911..." />
         </div>
@@ -454,6 +459,7 @@
     const form = document.getElementById("form");
     const msg = document.getElementById("msg");
     const thread = document.getElementById("thread");
+    const apiKey = document.getElementById("apiKey");
     const resetBtn = document.getElementById("resetBtn");
 
     // Sidebar elements
@@ -471,16 +477,20 @@
       return d.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
     }
 
+    function authHeaders(){
+      const h = {"Content-Type": "application/json"};
+      const k = (apiKey.value || "").trim();
+      if (k) h["X-Test-Key"] = k;
+      return h;
+    }
+
     function updateSidebar(state) {
-      // Locked Route
       lockedRoute.textContent = state.locked_route || "—";
       lockedRoute.className = state.locked_route ? "sidebarValue highlight" : "sidebarValue neutral";
 
-      // Estimated Route
       estimatedRoute.textContent = state.estimated_route || "—";
       estimatedRoute.className = state.estimated_route ? "sidebarValue highlight" : "sidebarValue neutral";
 
-      // Confidence (show as integer percentage, no decimals)
       if (state.confidence != null && typeof state.confidence === 'number') {
         confidence.textContent = Math.round(state.confidence * 100) + "%";
         confidence.className = "sidebarValue highlight";
@@ -489,20 +499,13 @@
         confidence.className = "sidebarValue neutral";
       }
 
-      // Routing Attempts
       routingAttempts.textContent = state.routing_attempts || 0;
-
-      // Solve Attempts
       solveAttempts.textContent = state.solve_attempts || 0;
-
-      // Max Solve Attempts
       maxSolveAttempts.textContent = state.max_solve_attempts != null ? state.max_solve_attempts : "—";
 
-      // Escalated to Human
       escalated.textContent = state.escalated_to_human ? "true" : "false";
       escalated.className = state.escalated_to_human ? "sidebarValue highlight" : "sidebarValue neutral";
 
-      // Retrieved Documents Count
       retrievedCount.textContent = state.retrieved_count || 0;
     }
 
@@ -522,15 +525,44 @@
       row.appendChild(bubble);
       chat.appendChild(row);
       chat.scrollTop = chat.scrollHeight;
+      return bubble;
     }
 
     function getThreadId(){
-      const v = (thread.value || "").trim();
-      return v || "dev-thread";
+      return (thread.value || "").trim() || "dev-thread";
     }
 
     function persistThreadId(){
       try { localStorage.setItem("dev_thread_id", (thread.value || "").trim()); } catch(e){}
+    }
+
+    // Poll /result/{job_id} until done, updating a placeholder bubble.
+    async function pollResult(job_id, bubble) {
+      const POLL_MS = 800;
+      const MAX_POLLS = 150; // 2 min max
+      for (let i = 0; i < MAX_POLLS; i++) {
+        await new Promise(r => setTimeout(r, POLL_MS));
+        let res;
+        try {
+          res = await fetch(`/result/${job_id}`, {headers: authHeaders()});
+        } catch(e) {
+          bubble.childNodes[0].textContent = "Network error while polling.";
+          return;
+        }
+        if (res.status === 401) { bubble.childNodes[0].textContent = "Unauthorized — check your test key."; return; }
+        if (res.status === 404) { bubble.childNodes[0].textContent = "Job expired or not found."; return; }
+        if (!res.ok) { bubble.childNodes[0].textContent = `Server error (${res.status}).`; return; }
+
+        const j = await res.json();
+        if (j.status === "pending") continue;
+
+        // Done
+        bubble.childNodes[0].textContent = j.answer || JSON.stringify(j);
+        if (j.state) updateSidebar(j.state);
+        chat.scrollTop = chat.scrollHeight;
+        return;
+      }
+      bubble.childNodes[0].textContent = "Timed out waiting for a response.";
     }
 
     (function init(){
@@ -554,30 +586,35 @@
       msg.value = "";
       msg.focus();
 
-      const payload = { text, thread_id: getThreadId() };
-      const r = await fetch("/chat", {
-        method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify(payload)
-      });
+      // Placeholder bubble shown while the job runs
+      const typingBubble = addBubble("bot", "…");
 
-      const j = await r.json();
-      addBubble("bot", j.answer || JSON.stringify(j));
-
-      // Update sidebar with state
-      if (j.state) {
-        updateSidebar(j.state);
+      let r;
+      try {
+        r = await fetch("/chat", {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({text, thread_id: getThreadId()}),
+        });
+      } catch(e) {
+        typingBubble.childNodes[0].textContent = "Network error.";
+        return;
       }
+
+      if (r.status === 401) { typingBubble.childNodes[0].textContent = "Unauthorized — check your test key."; return; }
+      if (!r.ok) { typingBubble.childNodes[0].textContent = `Error ${r.status}.`; return; }
+
+      const j = await r.json(); // {job_id, status: "pending"}
+      await pollResult(j.job_id, typingBubble);
     };
 
     resetBtn.onclick = async () => {
       persistThreadId();
 
-      const payload = { thread_id: getThreadId() };
       const r = await fetch("/reset", {
         method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify(payload)
+        headers: authHeaders(),
+        body: JSON.stringify({thread_id: getThreadId()}),
       });
 
       if (!r.ok){
@@ -589,19 +626,11 @@
 
       chat.innerHTML = "";
       addBubble("bot", "Chat reset for this thread_id.");
-
-      // Reset sidebar
       updateSidebar({
-        locked_route: null,
-        estimated_route: null,
-        confidence: null,
-        routing_attempts: 0,
-        solve_attempts: 0,
-        max_solve_attempts: null,
-        escalated_to_human: false,
-        retrieved_count: 0,
+        locked_route: null, estimated_route: null, confidence: null,
+        routing_attempts: 0, solve_attempts: 0, max_solve_attempts: null,
+        escalated_to_human: false, retrieved_count: 0,
       });
-
       msg.focus();
     };
   </script>
