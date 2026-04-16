@@ -1,0 +1,188 @@
+{
+    "node_ref": "app.core.graph.route_handler.factory_and_nodes:make_route_subgraph",
+    "route_id": "TPMS",
+    "node_name": "generate",
+    "scenarios": [
+        {
+            "id": "tool_router_no_tools",
+            "title": "Tool router returns no tool calls — handler runs with empty context",
+            "tags": ["route_subgraph", "generate", "tool_router", "no_llm"],
+            "setup": {
+                "route_id": "TPMS",
+                "initial_state": {
+                    "solve_attempts": 0,
+                    "locked_route": "TPMS",
+                    "messages": [
+                        {"type": "human", "content": "hola, ¿en qué me podés ayudar?"}
+                    ]
+                },
+                "mocks": {
+                    "tool_router_mock": [],
+                    "llm_output": {
+                        "is_topic_switch": false,
+                        "answer": "Puedo ayudarte con sensores TPMS.",
+                        "increment_solve_attempts": false
+                    }
+                }
+            },
+            "turns": [
+                {
+                    "user_msg": "hola, ¿en qué me podés ayudar?",
+                    "expect": {
+                        "state": {
+                            "solve_attempts": 0,
+                            "locked_route": "TPMS",
+                            "retrieved": []
+                        },
+                        "assistant": {
+                            "contains": ["TPMS"]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "id": "tool_router_calls_rag",
+            "title": "Tool router selects rag_retrieval — docs appear in state.retrieved",
+            "tags": ["route_subgraph", "generate", "tool_router", "no_llm"],
+            "setup": {
+                "route_id": "TPMS",
+                "initial_state": {
+                    "solve_attempts": 0,
+                    "locked_route": "TPMS",
+                    "messages": [
+                        {"type": "human", "content": "el sensor no conecta"}
+                    ]
+                },
+                "mocks": {
+                    "tool_router_mock": [
+                        {
+                            "name": "rag_retrieval",
+                            "args": {"query": "el sensor no conecta", "k": 3}
+                        }
+                    ],
+                    "retriever_docs": [
+                        {"page_content": "Paso 1: Verificá que el sensor esté emparejado.", "metadata": {"id": "doc_a"}},
+                        {"page_content": "Paso 2: Reiniciá la app.", "metadata": {"id": "doc_b"}}
+                    ],
+                    "llm_output": {
+                        "is_topic_switch": false,
+                        "answer": "Para solucionar la conectividad del sensor, seguí estos pasos.",
+                        "increment_solve_attempts": true
+                    }
+                }
+            },
+            "turns": [
+                {
+                    "user_msg": "el sensor no conecta",
+                    "expect": {
+                        "state": {
+                            "solve_attempts": 1,
+                            "locked_route": "TPMS",
+                            "retrieved": [
+                                {"page_content": "Paso 1: Verificá que el sensor esté emparejado.", "metadata": {"id": "doc_a"}},
+                                {"page_content": "Paso 2: Reiniciá la app.", "metadata": {"id": "doc_b"}}
+                            ]
+                        },
+                        "assistant": {
+                            "contains": ["sensor"]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "id": "tool_router_calls_catalog",
+            "title": "Tool router selects catalog_lookup — catalog data used as context",
+            "tags": ["route_subgraph", "generate", "tool_router", "no_llm"],
+            "setup": {
+                "route_id": "TPMS",
+                "initial_state": {
+                    "solve_attempts": 0,
+                    "locked_route": "TPMS",
+                    "messages": [
+                        {"type": "human", "content": "how much does the C260 cost?"}
+                    ]
+                },
+                "mocks": {
+                    "tool_router_mock": [
+                        {
+                            "name": "catalog_lookup",
+                            "args": {"query": "C260 price", "k": 3}
+                        }
+                    ],
+                    "catalog_mock": {
+                        "count": 1,
+                        "currency": "ARS",
+                        "matches": [
+                            {
+                                "sku": "C260",
+                                "title": "Sensor TPMS C260",
+                                "price": 15000,
+                                "family": "TPMS"
+                            }
+                        ]
+                    },
+                    "llm_output": {
+                        "is_topic_switch": false,
+                        "answer": "El C260 cuesta $15000 ARS.",
+                        "increment_solve_attempts": false
+                    }
+                }
+            },
+            "turns": [
+                {
+                    "user_msg": "how much does the C260 cost?",
+                    "expect": {
+                        "state": {
+                            "solve_attempts": 0,
+                            "locked_route": "TPMS",
+                            "retrieved": []
+                        },
+                        "assistant": {
+                            "contains": ["C260"]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "id": "tool_router_fails_gracefully",
+            "title": "Tool router exception — handler still runs with empty context (no crash)",
+            "tags": ["route_subgraph", "generate", "tool_router", "no_llm"],
+            "setup": {
+                "route_id": "TPMS",
+                "initial_state": {
+                    "solve_attempts": 0,
+                    "locked_route": "TPMS",
+                    "messages": [
+                        {"type": "human", "content": "el sensor parpadea"}
+                    ]
+                },
+                "mocks": {
+                    "tool_router_mock": "raise",
+                    "llm_output": {
+                        "is_topic_switch": false,
+                        "answer": "El sensor puede parpadear por batería baja.",
+                        "increment_solve_attempts": true
+                    }
+                }
+            },
+            "turns": [
+                {
+                    "user_msg": "el sensor parpadea",
+                    "expect": {
+                        "state": {
+                            "solve_attempts": 1,
+                            "locked_route": "TPMS",
+                            "retrieved": []
+                        },
+                        "assistant": {
+                            "contains": ["sensor"]
+                        }
+                    }
+                }
+            ]
+        }
+    ]
+}

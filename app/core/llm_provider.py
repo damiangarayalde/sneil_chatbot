@@ -99,3 +99,22 @@ class MockChain:
             f"Add a fallback entry (no 'match' key) to "
             f"{_FIXTURES_DIR / (self._output_cls.__name__ + '.json')}"
         )
+
+
+# ---------------------------------------------------------------------------
+# MockToolRouterChain
+# ---------------------------------------------------------------------------
+
+class MockToolRouterChain:
+    """Mock for the tool-router LLM (llm.bind_tools([...])).
+
+    Returns an AIMessage with empty tool_calls by default so tests that don't
+    care about tool selection still pass without API calls.
+
+    Tests that need specific tool calls should mock ``get_tool_router_llm``
+    directly via the ``tool_router_mock`` field in their scenario setup.
+    """
+
+    def invoke(self, messages, **kwargs):
+        from langchain_core.messages import AIMessage
+        return AIMessage(content="", tool_calls=[])

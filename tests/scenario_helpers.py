@@ -236,7 +236,7 @@ def _apply_scenario_mocks(scenario: Scenario, bundle_meta: Dict[str, Any]):
             )
 
         retriever_docs = mocks.get("retriever_docs")
-        if retriever_docs:
+        if retriever_docs is not None:
             from langchain_core.documents import Document
             docs = [
                 Document(page_content=d["page_content"], metadata=d.get("metadata") or {})
@@ -248,6 +248,40 @@ def _apply_scenario_mocks(scenario: Scenario, bundle_meta: Dict[str, Any]):
                 mock_patch(
                     "app.core.graph.route_handler.factory_and_nodes._get_route_retriever",
                     return_value=mock_retriever,
+                )
+            )
+
+        # tool_router_mock: list of {name, args} dicts (or [] for no tool calls).
+        # Controls which tool calls the LLM "selects" during the tool-router step.
+        # Set to "raise" to simulate a tool-router failure (graceful degradation test).
+        tool_router_mock = mocks.get("tool_router_mock")
+        if tool_router_mock is not None:
+            mock_tr = MagicMock()
+            if tool_router_mock == "raise":
+                mock_tr.invoke.side_effect = RuntimeError("simulated tool router failure")
+            else:
+                from langchain_core.messages import AIMessage as _AIMessage
+                # LangChain requires each tool_call entry to have an 'id' field.
+                tool_calls_with_id = [
+                    {**tc, "id": tc.get("id", f"call_{i}")}
+                    for i, tc in enumerate(tool_router_mock)
+                ]
+                mock_response = _AIMessage(content="", tool_calls=tool_calls_with_id)
+                mock_tr.invoke.return_value = mock_response
+            stack.enter_context(
+                mock_patch(
+                    "app.core.graph.route_handler.factory_and_nodes.get_tool_router_llm",
+                    return_value=mock_tr,
+                )
+            )
+
+        # catalog_mock: dict returned by catalog_lookup (replaces real catalog file read).
+        catalog_mock = mocks.get("catalog_mock")
+        if catalog_mock is not None:
+            stack.enter_context(
+                mock_patch(
+                    "app.core.graph.route_handler.factory_and_nodes.catalog_lookup",
+                    return_value=catalog_mock,
                 )
             )
 

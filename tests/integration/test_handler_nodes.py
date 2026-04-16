@@ -1,11 +1,11 @@
 """
-Integration tests for the route-handler subgraph nodes: retrieve and generate.
+Integration tests for the route-handler subgraph nodes: generate and tool router.
 
 Wraps:
-  - tests/test__node_subgraph__retrieve.scenarios.json
   - tests/test__node_subgraph__generate.scenarios.json
+  - tests/test__node_subgraph__generate_tool_router.scenarios.json
 
-Scenarios that provide mock llm_output / retriever_docs in setup.mocks run
+Scenarios that provide mock llm_output / tool_router_mock in setup.mocks run
 offline; others require OPENAI_API_KEY.
 
 Run fast subset:
@@ -26,18 +26,11 @@ from tests.scenario_helpers import (
     run_scenario,
 )
 
-_RETRIEVE_BUNDLE = Path(__file__).parent.parent / "test__node_subgraph__retrieve.scenarios.json"
 _GENERATE_BUNDLE = Path(__file__).parent.parent / "test__node_subgraph__generate.scenarios.json"
+_TOOL_ROUTER_BUNDLE = Path(__file__).parent.parent / "test__node_subgraph__generate_tool_router.scenarios.json"
 
-_retrieve_obj, _retrieve_scenarios, _retrieve_meta = load_scenarios_json(_RETRIEVE_BUNDLE)
 _generate_obj, _generate_scenarios, _generate_meta = load_scenarios_json(_GENERATE_BUNDLE)
-
-
-class TestRetrieveNode:
-    @pytest.mark.parametrize("scenario", bundle_params(_retrieve_scenarios))
-    def test_scenario(self, scenario: dict) -> None:
-        node_fn = _resolve_node_fn(_retrieve_obj, _retrieve_meta, scenario)
-        run_scenario(node_fn, scenario, _retrieve_meta)
+_tool_router_obj, _tool_router_scenarios, _tool_router_meta = load_scenarios_json(_TOOL_ROUTER_BUNDLE)
 
 
 class TestGenerateNode:
@@ -45,3 +38,10 @@ class TestGenerateNode:
     def test_scenario(self, scenario: dict) -> None:
         node_fn = _resolve_node_fn(_generate_obj, _generate_meta, scenario)
         run_scenario(node_fn, scenario, _generate_meta)
+
+
+class TestToolRouterNode:
+    @pytest.mark.parametrize("scenario", bundle_params(_tool_router_scenarios))
+    def test_scenario(self, scenario: dict) -> None:
+        node_fn = _resolve_node_fn(_tool_router_obj, _tool_router_meta, scenario)
+        run_scenario(node_fn, scenario, _tool_router_meta)

@@ -52,29 +52,6 @@ def is_low_info(text: str) -> bool:
 
 
 # --------------------------------------------------------------------------------------
-# Retrieval heuristic (kept here because some routes use it)
-
-TROUBLE_KEYWORDS = [
-    # troubleshooting / failure
-    "no funciona", "no anda", "no prende", "no enciende", "no carga", "no conecta",
-    "no enfría", "no enfria", "no calienta", "no responde", "se corta", "se apaga",
-    "error", "falla", "problema", "ruido", "vibra", "pierde", "pierde presión", "pierde presion",
-    "alarma", "sensor", "emparejar", "bluetooth", "presión", "presion", "temperatura",
-    # how-to / setup
-    "cómo", "como", "instalar", "configurar", "calibrar", "reset", "reiniciar",
-    "paso a paso", "manual", "instrucciones", "setear", "programar",
-]
-
-
-def should_retrieve(user_text: str) -> bool:
-    t = normalize(user_text)
-    if is_low_info(t):
-        return False
-    # retrieval when it looks like a question or an issue/how-to
-    return ("?" in t) or any(k in t for k in TROUBLE_KEYWORDS)
-
-
-# --------------------------------------------------------------------------------------
 # Human handoff detection
 
 _HUMAN_REQUEST_PATTERNS = [
