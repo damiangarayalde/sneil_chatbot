@@ -22,6 +22,8 @@ from app.core.persistence import (
     get_db_stats,
 )
 from app.core.graph.build import build_graph
+from app.interfaces.whatsapp_webhook import router as whatsapp_router
+import app.interfaces.whatsapp_webhook as _wa_webhook
 from app.interfaces.chatbot_ui_mockup_helpers import (
     extract_assistant_text,
     make_config,
@@ -66,10 +68,12 @@ async def lifespan(app: FastAPI):
     # Build the graph with an async checkpointer so ainvoke works correctly.
     async with AsyncSqliteSaver.from_conn_string(get_db_path()) as async_checkpointer:
         graph = build_graph(checkpointer=async_checkpointer)
+        _wa_webhook.set_graph(graph)
 
         cfg = load_cfg()
         ttl_hours = cfg.get("THREAD_TTL_HOURS", 24)
         try:
+            CHECKPOINTER.setup()  # ensure checkpoints table exists before querying it
             deleted = delete_old_threads(CHECKPOINTER, ttl_hours)
             if deleted > 0:
                 _logger.info(
@@ -83,6 +87,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+app.include_router(whatsapp_router)
 
 
 def _check_auth(x_test_key: str | None):

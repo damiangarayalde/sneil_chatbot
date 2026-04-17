@@ -17,3 +17,8 @@ app/data/**
 *.pyc
 # Virtual environments
 .venv
+
+# Baileys WhatsApp bridge — session credentials and dependencies
+adapters/whatsapp_baileys/auth_state/
+adapters/whatsapp_baileys/node_modules/
+adapters/whatsapp_baileys/.env
