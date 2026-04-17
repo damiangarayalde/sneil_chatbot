@@ -53,12 +53,13 @@ def route_after_classifier(state: ChatState) -> str:
 
 
 def route_after_handler(state: ChatState) -> str:
-    """After a handler:
-    - If handler cleared lock (topic switch): go back to classifier.
-    - Otherwise: end the invocation.
+    """After a handler: always end the turn.
+
+    Topic switches (handler cleared locked_route) are handled on the next
+    user message via route_from_start_precheck → classifier.  Routing back
+    to classifier within the same ainvoke created an infinite loop when the
+    classifier re-locked to the same route the handler just cleared.
     """
-    if state.get("locked_route") is None:
-        return "classifier"
     return end_turn_node_name()
 
 

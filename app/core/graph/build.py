@@ -10,7 +10,6 @@ from app.core.persistence import get_sqlite_checkpointer
 from app.core.graph.routing_edges import (
     handler_edge_map,
     route_after_classifier,
-    route_after_handler,
     route_from_start_precheck,
 )
 
@@ -67,13 +66,9 @@ def build_graph(checkpointer=None) -> StateGraph:
     g.add_conditional_edges(
         "classifier", route_after_classifier, after_classifier_map)
 
-    # handler -> hub if topic switch else end_of_turn
+    # handler -> end_of_turn (always; topic switches are handled next turn)
     for r in ROUTES:
-        g.add_conditional_edges(
-            route_node_name(r),
-            route_after_handler,
-            {"classifier": "classifier", end_turn_node_name(): end_turn_node_name()},
-        )
+        g.add_edge(route_node_name(r), end_turn_node_name())
 
     g.add_edge(end_turn_node_name(), END)
 
