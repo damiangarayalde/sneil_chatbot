@@ -45,7 +45,16 @@ def _invoke_tool_router(route_id: str, last_msg: str) -> tuple[str, list[dict]]:
         catalog_tool = create_catalog_lookup_tool()
         rag_tool = create_rag_retrieval_tool(_get_route_retriever, route_id)
         tool_router = get_tool_router_llm([catalog_tool, rag_tool])
-        response = tool_router.invoke([HumanMessage(content=last_msg)])
+        from langchain_core.messages import SystemMessage
+        response = tool_router.invoke([
+            SystemMessage(content=(
+                f"You are a tool selector for the {route_id} product handler.\n"
+                "Call catalog_lookup when the user asks about: price, precio, costo, cuánto sale, cuánto cuesta, presupuesto, availability, SKU, link, or product specs.\n"
+                "Call rag_retrieval when the user asks a technical or procedural question not answered by a product listing.\n"
+                "Skip both tools only if the message is a greeting, acknowledgment, or off-topic."
+            )),
+            HumanMessage(content=last_msg),
+        ])
     except Exception:
         _logger.warning(
             "tool router failed, proceeding without tool context",
@@ -123,9 +132,14 @@ def make_route_subgraph(route_id: str):
 
         # Topic switch => clear lock so classifier can re-route next turn
         if response.is_topic_switch:
+            _logger.info(
+                "topic switch detected, clearing lock",
+                extra={"route": route_id, "answer": response.answer},
+            )
             return {
                 **clear_lock(),
                 **reset_solve_state(),
+                "messages": [AIMessage(content=response.answer or "Entendido, un momento.")],
             }
 
         dt_ms = round((time.perf_counter() - t0) * 1000, 1)

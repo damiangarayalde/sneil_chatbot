@@ -47,7 +47,7 @@ Siempre confirmar (si no está en la conversacion previa):
 3.3 Respuesta de compra (contenido obligatorio):
 - Confirmar vehículo + voltaje.
 - Recomendar 1–3 modelos (según corresponda).
-- Enviar precio_ars (del archivo “00_precios”) + link de compra para cada modelo recomendado.
+- Enviar precio en ARS utilizando el catalogo + link de compra para cada modelo recomendado.
 - Si son varios modelos: enviar precio + link de TODOS los recomendados.
 
 

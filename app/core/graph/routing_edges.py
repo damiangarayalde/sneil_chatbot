@@ -100,8 +100,10 @@ def route_from_start_precheck(state: ChatState) -> str:
     if is_valid_route(locked) and max_solve_attempts and solve_attempts >= max_solve_attempts:
         return "handoff"
 
-    # 3) low-info clarify (generic or route-specific)
-    if is_low_info(last_msg):
+    # 3) low-info clarify — only before a route is locked.
+    # Once locked, short replies like "si" / "ok" are valid in-conversation responses;
+    # the handler has full history to interpret them correctly.
+    if not is_valid_route(locked) and is_low_info(last_msg):
         return "clarify"
 
     # 4) locked => handler, else classifier
