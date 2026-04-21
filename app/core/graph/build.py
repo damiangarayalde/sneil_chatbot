@@ -73,6 +73,3 @@ def build_graph(checkpointer=None) -> StateGraph:
     g.add_edge(end_turn_node_name(), END)
 
     return g.compile(checkpointer=checkpointer)
-
-    # ADD SESSION TIMEOUTs
-    # when changing topic  the assistant dont ask anything

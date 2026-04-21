@@ -12,12 +12,10 @@ def get_shared_texts() -> dict:
     """Load all shared prompt texts used across routes."""
     BASE = load_prompt("app/core/prompts/shared/base_policy.md")
     WHATSAPP = load_prompt("app/core/prompts/shared/whatsapp_format.md")
-    ESCALATION = load_prompt("app/core/prompts/shared/escalation_policy.md")
     SHIP_SPAIN = load_prompt("app/core/prompts/shared/shipping_spain.md")
     return {
         "BASE": BASE,
         "WHATSAPP": WHATSAPP,
-        "ESCALATION": ESCALATION,
         "SHIP_SPAIN": SHIP_SPAIN,
     }
 
@@ -36,8 +34,6 @@ def combine_shared_and_route_prompts(route_id: str, route_prompt: str, max_chars
         + shared_texts["WHATSAPP"]
         + "\n\n"
         # + shared_texts["SHIP_SPAIN"]
-        # + "\n\n"
-        # + shared_texts["ESCALATION"]
         + "\n\n"
         + f"## ROUTE: {route_id}\n"
         + route_prompt
