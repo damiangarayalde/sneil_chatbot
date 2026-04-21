@@ -69,29 +69,35 @@ def _invoke_tool_router(route_id: str, last_msg: str) -> tuple[str, list[dict]]:
         name = tc.get("name", "")
         args = tc.get("args", {})
 
-        if name == "catalog_lookup":
-            out = catalog_lookup(
-                args.get("query", last_msg),
-                product_family=route_id,
-                k=args.get("k", 3),
-            )
-            _logger.info(
-                "catalog lookup via tool router",
-                extra={"route": route_id, "matches": out["count"]},
-            )
-            result_parts.append("\n\nCATALOG_LOOKUP:\n" + str(out))
-
-        elif name == "rag_retrieval":
-            retriever = _get_route_retriever(route_id, k=args.get("k", 3))
-            docs = retriever.invoke(args.get("query", last_msg))
-            if docs:
-                raw_docs = [
-                    {"page_content": d.page_content, "metadata": d.metadata}
-                    for d in docs
-                ]
-                result_parts.append(
-                    "\n\nRAG_DOCS:\n" + "\n\n".join(d.page_content for d in docs)
+        try:
+            if name == "catalog_lookup":
+                out = catalog_lookup(
+                    args.get("query", last_msg),
+                    product_family=route_id,
+                    k=args.get("k", 3),
                 )
+                _logger.info(
+                    "catalog lookup via tool router",
+                    extra={"route": route_id, "matches": out["count"]},
+                )
+                result_parts.append("\n\nCATALOG_LOOKUP:\n" + str(out))
+
+            elif name == "rag_retrieval":
+                retriever = _get_route_retriever(route_id, k=args.get("k", 3))
+                docs = retriever.invoke(args.get("query", last_msg))
+                if docs:
+                    raw_docs = [
+                        {"page_content": d.page_content, "metadata": d.metadata}
+                        for d in docs
+                    ]
+                    result_parts.append(
+                        "\n\nRAG_DOCS:\n" + "\n\n".join(d.page_content for d in docs)
+                    )
+        except Exception:
+            _logger.warning(
+                "tool execution failed, skipping",
+                extra={"route": route_id, "tool": name},
+            )
 
     return "".join(result_parts), raw_docs
 

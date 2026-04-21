@@ -114,5 +114,5 @@ def build_index(product_id: str):
 
 
 if __name__ == "__main__":
-    for product in ["TPMS", "AA"]:
+    for product in ["TPMS", "AA", "CLIMATIZADORES", "CALDERAS"]:
         build_index(product)

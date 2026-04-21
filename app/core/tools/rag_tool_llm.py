@@ -13,7 +13,7 @@ class RagRetrievalArgs(BaseModel):
     )
 
     k: int = Field(
-        default=3,
+        default=6,
         description="Number of documents to retrieve",
         ge=1,
         le=10,
@@ -31,6 +31,7 @@ def create_rag_retrieval_tool(retriever_fn: Callable, route_id: str) -> Structur
     def _retrieve(query: str, k: int = 3) -> str:
         retriever = retriever_fn(route_id, k=k)
         docs = retriever.invoke(query)
+
         def _fmt(d):
             name = Path(d.metadata.get("source", "")).stem
             header = f"[Fuente: {name}]\n" if name else ""
