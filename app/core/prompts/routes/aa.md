@@ -29,19 +29,8 @@ Siempre confirmar (si no está en la conversacion previa):
 - NO recomendado para autos pequeños por alto consumo. 
 - Aclaración obligatoria: NO existe HDK3300 en 12V (solo 24V).
 
-### 3.2 Links oficiales de compra (enviar completos, sin emojis pegados):
-- HDK2200 12V manga interna (C04312):
-  https://neil.ar/p/aire-acondicionado-inverter-12v-hdk2200-motorhome-manga-interna/61ed8dfe-e8cd-49d0-9bad-28b863a678a0
-- HDK2200 12V manga externa (C04312_E):
-  https://neil.ar/p/aire-acondicionado-12v-para-camiones-inverter-2200w-neil-hdk-2200/9e4499f7-8746-4020-acc3-ac5ec27769fb
-- HDK2200 24V (C04324):
-  https://neil.ar/p/aire-acondicionado-24v-para-camion-inverter-2200w-neil-hdk-2200/c6e2e15c-2838-4ef8-a7d7-e6ea6df70e6c
-- HDK2800 12V (C05712):
-  https://neil.ar/p/aire-acondicionado-12v-inverter-2800w-neil-hdk-2800/135105ef-e571-4a6e-9e32-7a18c7368bca
-- HDK2800 24V (C05724):
-  https://neil.ar/p/aire-acondicionado-24v-inverter-2800w-neil-hdk-2800/95f7a3c5-4e6f-4d00-87ee-9202a0448c44
-- HDK3300 24V (C05324):
-  https://neil.ar/p/aire-acondicionado-24v-inverter-3000w-neil-hdk-3300/086cdc28-bbf0-4eb3-b43a-073ccae869b1
+### 3.2 Links de compra:
+Usar siempre el `link` del catálogo provisto en el contexto, buscando por modelo (HDK 2200, HDK 2800, HDK 3300) o SKU (C04312, C04312_E, C04324, C05712, C05724, C05324). Enviar el link completo, sin emojis pegados.
 
 
 ### 3.3 Respuesta de compra (contenido obligatorio):

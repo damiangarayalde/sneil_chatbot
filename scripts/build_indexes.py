@@ -63,7 +63,10 @@ def build_index(product_id: str):
     for i, docx in enumerate(docx_files, 1):
         print(f"   [{i}/{len(docx_files)}] Loading: {docx.name}...",
               end=" ", flush=True)
-        docs.extend(Docx2txtLoader(str(docx)).load())
+        loaded = Docx2txtLoader(str(docx)).load()
+        for doc in loaded:
+            doc.metadata["doc_name"] = docx.stem
+        docs.extend(loaded)
         print("✓")
 
     print(f"\n✅ Loaded {len(docs)} documents\n")

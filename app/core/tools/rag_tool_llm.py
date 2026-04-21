@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Callable
 
 from pydantic import BaseModel, Field
@@ -30,7 +31,12 @@ def create_rag_retrieval_tool(retriever_fn: Callable, route_id: str) -> Structur
     def _retrieve(query: str, k: int = 3) -> str:
         retriever = retriever_fn(route_id, k=k)
         docs = retriever.invoke(query)
-        return "\n\n---\n\n".join(d.page_content for d in docs) if docs else ""
+        def _fmt(d):
+            name = Path(d.metadata.get("source", "")).stem
+            header = f"[Fuente: {name}]\n" if name else ""
+            return header + d.page_content
+
+        return "\n\n---\n\n".join(_fmt(d) for d in docs) if docs else ""
 
     return StructuredTool.from_function(
         name="rag_retrieval",

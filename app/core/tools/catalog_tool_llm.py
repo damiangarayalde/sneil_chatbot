@@ -56,6 +56,7 @@ Use this tool when the user asks about:
 
 The tool returns structured product matches including:
 - id / SKU
+- model (list of compatible model names)
 - title
 - price
 - sale_price

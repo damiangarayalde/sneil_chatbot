@@ -54,8 +54,8 @@ def catalog_lookup(query: str, product_family: Optional[str] = None, k: int = 3)
             p.get("description", ""),
             p.get("sku", ""),
             p.get("family", ""),
-            p.get("google_product_category", "")
-        ] + p.get("aliases", []))
+            p.get("google_product_category", ""),
+        ] + p.get("model", []) + p.get("aliases", []))
         hay_n = _norm(hay)  # Normalize the product string
         if q in hay_n:
             score += 5  # Increase score for exact match

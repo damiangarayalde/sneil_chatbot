@@ -70,13 +70,7 @@ B) tiene SOPORTE TÉCNICO (problema con TPMS).
   - C400 (motos): https://tpms.com.ar/soporte-c400/
   - C410: https://tpms.com.ar/soporte-c410/
 - Soporte general: https://tpms.com.ar/soporte/
-- Links comerciales por modelos:
-  - C260: https://neil.ar/accesorios-para-vehiculos/medidor-de-presion-y-temperatura-de-neumaticos-tpms?search=c260
-  - C240: https://neil.ar/accesorios-para-vehiculos/medidor-de-presion-y-temperatura-de-neumaticos-tpms?search=c240
-  - C270: https://neil.ar/accesorios-para-vehiculos/medidor-de-presion-y-temperatura-de-neumaticos-tpms?search=c270
-  - C410: https://neil.ar/p/tpms-para-motos-sensores-externos-c410/85ba4a87-2002-4d01-9122-52808bc6c41e
-  - C300: https://neil.ar/p/tpms-para-utilitarios-y-motorhome-sensores-internos-c300/59d7a94d-80c6-4be7-b930-bfa3ca4657ca
-  - C101: https://neil.ar/accesorios-para-vehiculos/medidor-de-presion-y-temperatura-de-neumaticos-tpms?search=c101
+- Links de compra por modelo: usar siempre el `link` del catálogo provisto en el contexto, buscando por modelo (C101, C240, C260, C270, C300, C410).
 - Info comercial general: https://tpms.com.ar/tienda/#tpms
 - Tienda online (catálogo): https://neil.ar/tpms2
 - WhatsApp soporte técnico: https://wa.link/knk1e6
