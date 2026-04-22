@@ -32,7 +32,7 @@ def route_node_name(route: str) -> str:
     return f"handle__{route}"
 
 
-def _invoke_tool_router(route_id: str, last_msg: str) -> tuple[str, list[dict]]:
+def _invoke_tool_router(route_id: str, last_msg: str, history: list = None) -> tuple[str, list[dict]]:
     """Call the tool-router LLM; execute its tool calls; return (context_str, raw_docs).
 
     The LLM decides whether to call catalog_lookup, rag_retrieval, or neither.
@@ -46,15 +46,21 @@ def _invoke_tool_router(route_id: str, last_msg: str) -> tuple[str, list[dict]]:
         rag_tool = create_rag_retrieval_tool(_get_route_retriever, route_id)
         tool_router = get_tool_router_llm([catalog_tool, rag_tool])
         from langchain_core.messages import SystemMessage
-        response = tool_router.invoke([
+        messages = [
             SystemMessage(content=(
                 f"You are a tool selector for the {route_id} product handler.\n"
-                "Call catalog_lookup when the user asks about: price, precio, costo, cuánto sale, cuánto cuesta, presupuesto, availability, SKU, link, or product specs.\n"
+                "Call catalog_lookup when:\n"
+                "- The user asks about price, precio, costo, cuánto sale, cuánto cuesta, presupuesto, availability, SKU, link, or product specs.\n"
+                "- The user has provided enough context (vehicle type, voltage, installation details) to recommend a specific product — even if they didn't explicitly ask for price or link.\n"
                 "Call rag_retrieval when the user asks a technical or procedural question not answered by a product listing.\n"
-                "Skip both tools only if the message is a greeting, acknowledgment, or off-topic."
+                "Skip both tools only if the message is a greeting, simple acknowledgment, or clearly off-topic.\n"
+                "When in doubt, call catalog_lookup — it is better to retrieve and not need than to skip and hallucinate."
             )),
-            HumanMessage(content=last_msg),
-        ])
+        ]
+        if history:
+            messages.extend(history)
+        messages.append(HumanMessage(content=last_msg))
+        response = tool_router.invoke(messages)
     except Exception:
         _logger.warning(
             "tool router failed, proceeding without tool context",
@@ -118,7 +124,7 @@ def make_route_subgraph(route_id: str):
         history, last_msg = get_history_and_last_msg(state.get("messages") or [])
 
         # Tool-router LLM decides whether to call catalog_lookup, rag_retrieval, or neither
-        context_text, raw_docs = _invoke_tool_router(route_id, last_msg)
+        context_text, raw_docs = _invoke_tool_router(route_id, last_msg, history)
 
         _logger.debug(
             "context assembled",

@@ -15,7 +15,16 @@ class CatalogLookupArgs(BaseModel):
 
     product_family: Optional[str] = Field(
         default=None,
-        description="Optional family filter like TPMS, AA, CLIMATIZADOR, CARJACK",
+        description=(
+            "Optional family filter. Accepted values (case-insensitive): "
+            "AA, Aire Acondicionado, "
+            "Caldera, "
+            "TPMS, "
+            "Climatizador, "
+            "Carjack, Arrancador, Inflador, "
+            "Genki, Estacion de carga, Bluetti, "
+            "Solar, Panel solar"
+        ),
     )
 
     k: int = Field(
@@ -43,29 +52,16 @@ def create_catalog_lookup_tool() -> StructuredTool:
         name="catalog_lookup",
         func=_catalog_lookup_tool,
         args_schema=CatalogLookupArgs,
-        description="""
-Search Neil's internal product catalog.
-
-Use this tool when the user asks about:
-
-• product prices
-• product links
-• SKUs or product codes
-• product availability
-• product specs or images
-
-The tool returns structured product matches including:
-- id / SKU
-- model (list of compatible model names)
-- title
-- price
-- sale_price
-- link
-- image_link
-- family
-- category
-- availability
-
-Use the returned information to answer the user.
-""",
+        description=(
+            "Search Neil's internal product catalog. "
+            "Use when the user asks about prices, links, SKUs, availability, or specs. "
+            "Product families: AA (air conditioners), Caldera (diesel heaters), "
+            "TPMS (tire pressure sensors), Climatizador (evaporative coolers), "
+            "Carjack/Arrancador/Inflador (jump starters, jacks, compressors), "
+            "Genki/Estacion de carga/Bluetti (power stations), "
+            "Solar/Panel solar (solar panels and kits). "
+            "Returns matches with fields: product_family, model, sku, title, price (ARS), sales_link. "
+            "Present each match as: '**<title>**\\n- Precio: $<price> ARS\\n- Link de compra: <sales_link>'. "
+            "Only include fields that are present; never invent prices or links."
+        ),
     )
