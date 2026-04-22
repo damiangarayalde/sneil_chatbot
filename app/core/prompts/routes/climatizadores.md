@@ -23,13 +23,12 @@ Siempre confirmar (si no está en la conversación previa):
 - Campers, motorhomes y casas rodantes: Neil Camper, Neil Camper Patagonia, Neil Camper Solar.
 - Utilitarios y camionetas: Neil Premium 700, Neil Camper, Neil Master.
 
-### 3.2 Links de compra:
-Usar siempre el `link` del catálogo provisto en el contexto, buscando por nombre de modelo. Enviar el link completo, sin emojis pegados.
-
-### 3.3 Respuesta de compra (contenido obligatorio):
+### 3.2 Respuesta de compra (contenido obligatorio):
 - Confirmar vehículo + voltaje.
-- Recomendar 1–3 modelos según corresponda.
-- Enviar precio en ARS + link de compra para cada modelo recomendado.
+- Presentar el o los modelos recomendados en la info provista de contexto bajo este formato:
+ **MODELO**
+  - Precio: $ (precio)
+  - Link de compra: (link completo)
 - Si son varios modelos: enviar precio + link de TODOS los recomendados.
 
 ## 4) Instalación / envío (NO derivar automáticamente)
